@@ -49,11 +49,11 @@ const Index = () => {
     toast.success("File removed");
   };
 
-  // Handle merge complete
+  // Handle merge or transform complete
   const handleMergeComplete = (data: any[]) => {
     setMergedData(data);
     setActiveTab("results");
-    toast.success(`Successfully merged ${data.length} rows`);
+    toast.success(`Successfully processed ${data.length} rows`);
   };
 
   // Count selected files
@@ -131,9 +131,9 @@ const Index = () => {
                 <span className="inline-block rounded-full bg-primary/10 p-2 mb-3">
                   <Settings className="h-6 w-6 text-primary" />
                 </span>
-                <h2 className="text-2xl font-medium mb-2">Configure and Merge</h2>
+                <h2 className="text-2xl font-medium mb-2">Configure and Transform</h2>
                 <p className="text-muted-foreground max-w-md mx-auto">
-                  Select files and configure how you want to merge them
+                  Select files and choose transformation operations: merge, drop columns, or filter rows
                 </p>
               </div>
               

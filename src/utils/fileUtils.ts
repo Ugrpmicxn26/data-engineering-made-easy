@@ -128,6 +128,38 @@ export const mergeDatasets = (
   return Object.values(result);
 };
 
+// Function to filter rows based on values in a specific column
+export const filterRows = (
+  data: any[],
+  column: string,
+  values: string[],
+  exclude: boolean = true
+): any[] => {
+  if (!data || !column || values.length === 0) return data;
+
+  return data.filter((row) => {
+    const cellValue = String(row[column] || '').trim();
+    const valueExists = values.some(v => cellValue === v);
+    return exclude ? !valueExists : valueExists;
+  });
+};
+
+// Function to exclude columns from a dataset
+export const excludeColumns = (
+  data: any[],
+  columns: string[]
+): any[] => {
+  if (!data || columns.length === 0) return data;
+
+  return data.map((row) => {
+    const newRow = { ...row };
+    columns.forEach((col) => {
+      delete newRow[col];
+    });
+    return newRow;
+  });
+};
+
 // Function to format file size
 export const formatFileSize = (bytes: number): string => {
   if (bytes === 0) return "0 Bytes";
