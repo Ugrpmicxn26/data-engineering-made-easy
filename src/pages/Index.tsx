@@ -8,7 +8,7 @@ import DataTable from "@/components/DataTable";
 import FilePreviewModal from "@/components/FilePreviewModal";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { UploadIcon, Settings, Layers, PanelRight } from "lucide-react";
+import { UploadIcon, Settings, Layers, PanelRight, SlidersHorizontal } from "lucide-react";
 
 const Index = () => {
   const [files, setFiles] = useState<FileData[]>([]);
@@ -154,11 +154,11 @@ const Index = () => {
             <div className="max-w-6xl mx-auto space-y-6">
               <div className="text-center mb-8">
                 <span className="inline-block rounded-full bg-primary/10 p-2 mb-3">
-                  <PanelRight className="h-6 w-6 text-primary" />
+                  <SlidersHorizontal className="h-6 w-6 text-primary" />
                 </span>
-                <h2 className="text-2xl font-medium mb-2">Merged Results</h2>
+                <h2 className="text-2xl font-medium mb-2">Analyze and Transform</h2>
                 <p className="text-muted-foreground max-w-md mx-auto">
-                  View and download your merged data
+                  Explore your merged data with powerful tools for filtering, pivoting, and more
                 </p>
               </div>
               
