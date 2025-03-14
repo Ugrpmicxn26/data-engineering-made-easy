@@ -8,7 +8,8 @@ import DataTable from "@/components/DataTable";
 import FilePreviewModal from "@/components/FilePreviewModal";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { UploadIcon, Settings, Layers, PanelRight, SlidersHorizontal } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { UploadIcon, Settings, Layers, PanelRight, SlidersHorizontal, PlusCircle } from "lucide-react";
 
 const Index = () => {
   const [files, setFiles] = useState<FileData[]>([]);
@@ -16,12 +17,14 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState("upload");
   const [previewFile, setPreviewFile] = useState<FileData | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [showUploader, setShowUploader] = useState(false);
 
   // Handle files being processed
   const handleFilesProcessed = (newFiles: FileData[]) => {
     setFiles(prev => [...prev, ...newFiles]);
     if (newFiles.length > 0) {
       setActiveTab("files");
+      setShowUploader(false);
     }
   };
 
@@ -50,10 +53,21 @@ const Index = () => {
   };
 
   // Handle merge or transform complete
-  const handleMergeComplete = (data: any[]) => {
+  const handleMergeComplete = (data: any[], updatedFiles?: FileData[]) => {
     setMergedData(data);
+    
+    // If we have updated files (after column drop or row filtering), update the files state
+    if (updatedFiles) {
+      setFiles(updatedFiles);
+    }
+    
     setActiveTab("results");
     toast.success(`Successfully processed ${data.length} rows`);
+  };
+  
+  // Toggle the uploader visibility
+  const toggleUploader = () => {
+    setShowUploader(prev => !prev);
   };
 
   // Count selected files
@@ -74,23 +88,38 @@ const Index = () => {
               <p className="text-muted-foreground text-sm">Transform and merge your CSV data seamlessly</p>
             </div>
             
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
-              <TabsList className="grid grid-cols-3 w-full sm:w-auto">
-                <TabsTrigger value="upload" className="flex gap-1 items-center data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  <UploadIcon className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Upload</span>
-                </TabsTrigger>
-                <TabsTrigger value="files" className="flex gap-1 items-center data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" disabled={files.length === 0}>
-                  <Settings className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Configure</span>
-                  {files.length > 0 && <span className="ml-1 text-xs bg-secondary text-secondary-foreground rounded-full px-1.5">{files.length}</span>}
-                </TabsTrigger>
-                <TabsTrigger value="results" className="flex gap-1 items-center data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" disabled={mergedData.length === 0}>
-                  <PanelRight className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Results</span>
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+            <div className="flex items-center gap-2">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
+                <TabsList className="grid grid-cols-3 w-full sm:w-auto">
+                  <TabsTrigger value="upload" className="flex gap-1 items-center data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                    <UploadIcon className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Upload</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="files" className="flex gap-1 items-center data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" disabled={files.length === 0}>
+                    <Settings className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Configure</span>
+                    {files.length > 0 && <span className="ml-1 text-xs bg-secondary text-secondary-foreground rounded-full px-1.5">{files.length}</span>}
+                  </TabsTrigger>
+                  <TabsTrigger value="results" className="flex gap-1 items-center data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" disabled={mergedData.length === 0}>
+                    <PanelRight className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Results</span>
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+              
+              {/* Upload more files button */}
+              {files.length > 0 && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={toggleUploader}
+                  className={showUploader ? "bg-primary/10" : ""}
+                >
+                  <PlusCircle className="h-3.5 w-3.5 mr-1" />
+                  <span className="hidden sm:inline">Add Files</span>
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -127,6 +156,17 @@ const Index = () => {
           
           <TabsContent value="files" className="mt-0 focus-visible:outline-none focus-visible:ring-0">
             <div className="max-w-4xl mx-auto space-y-8">
+              {/* Show uploader if requested */}
+              {showUploader && (
+                <div className="animate-fade-in border rounded-lg p-6 mb-6">
+                  <div className="text-center mb-4">
+                    <h3 className="text-lg font-medium">Add More Files</h3>
+                    <p className="text-sm text-muted-foreground">Upload additional files to process</p>
+                  </div>
+                  <FileDropZone onFilesProcessed={handleFilesProcessed} />
+                </div>
+              )}
+              
               <div className="text-center mb-8">
                 <span className="inline-block rounded-full bg-primary/10 p-2 mb-3">
                   <Settings className="h-6 w-6 text-primary" />
@@ -152,6 +192,17 @@ const Index = () => {
           
           <TabsContent value="results" className="mt-0 focus-visible:outline-none focus-visible:ring-0">
             <div className="max-w-6xl mx-auto space-y-6">
+              {/* Show uploader if requested */}
+              {showUploader && (
+                <div className="animate-fade-in border rounded-lg p-6 mb-6">
+                  <div className="text-center mb-4">
+                    <h3 className="text-lg font-medium">Add More Files</h3>
+                    <p className="text-sm text-muted-foreground">Upload additional files to process</p>
+                  </div>
+                  <FileDropZone onFilesProcessed={handleFilesProcessed} />
+                </div>
+              )}
+              
               <div className="text-center mb-8">
                 <span className="inline-block rounded-full bg-primary/10 p-2 mb-3">
                   <SlidersHorizontal className="h-6 w-6 text-primary" />

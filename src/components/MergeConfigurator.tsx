@@ -1,6 +1,5 @@
-
 import React, { useState, useMemo } from "react";
-import { FileData, MergeOptions, mergeDatasets } from "@/utils/fileUtils";
+import { FileData, MergeOptions, mergeDatasets, filterRows, excludeColumns } from "@/utils/fileUtils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,7 +21,7 @@ import { toast } from "sonner";
 
 interface MergeConfiguratorProps {
   files: FileData[];
-  onMergeComplete: (data: any[]) => void;
+  onMergeComplete: (data: any[], updatedFiles?: FileData[]) => void;
 }
 
 const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeComplete }) => {
@@ -153,24 +152,19 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
       // Get the remaining columns
       const remainingColumns = fileToModify.columns.filter(col => !columnsToExclude.includes(col));
 
-      // Create a virtual merged dataset with one file
-      const datasets: Record<string, any[]> = {
-        [fileToModify.id]: modifiedData
-      };
-
-      // Update the file's columns
-      const updatedFile = {
-        ...fileToModify,
-        columns: remainingColumns
-      };
-
-      // Find the index of the file to update
-      const fileIndex = files.findIndex(f => f.id === dropColumnsFile);
+      // Update the file in our file list with the new data and columns
+      const updatedFiles = [...files];
+      const fileIndex = updatedFiles.findIndex(f => f.id === dropColumnsFile);
+      
       if (fileIndex !== -1) {
-        const updatedFiles = [...files];
-        updatedFiles[fileIndex] = updatedFile;
-        // Update the file in state by calling onMergeComplete with the modified data
-        onMergeComplete(modifiedData);
+        updatedFiles[fileIndex] = {
+          ...fileToModify,
+          data: modifiedData,
+          columns: remainingColumns
+        };
+        
+        // Update the file in state by calling onMergeComplete with the modified data and updated files
+        onMergeComplete(modifiedData, updatedFiles);
         toast.success(`Successfully dropped ${columnsToExclude.length} columns`);
       }
     } catch (error) {
@@ -208,9 +202,20 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
         return !valuesToDrop.includes(columnValue);
       });
 
-      // Update with filtered data
-      onMergeComplete(filteredData);
-      toast.success(`Successfully filtered out ${fileToModify.data.length - filteredData.length} rows`);
+      // Update the file in our file list
+      const updatedFiles = [...files];
+      const fileIndex = updatedFiles.findIndex(f => f.id === dropRowsFile);
+      
+      if (fileIndex !== -1) {
+        updatedFiles[fileIndex] = {
+          ...fileToModify,
+          data: filteredData
+        };
+        
+        // Update with filtered data and updated files
+        onMergeComplete(filteredData, updatedFiles);
+        toast.success(`Successfully filtered out ${fileToModify.data.length - filteredData.length} rows`);
+      }
     } catch (error) {
       console.error("Error dropping rows:", error);
       toast.error("Failed to drop rows");
