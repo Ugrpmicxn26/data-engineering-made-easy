@@ -17,7 +17,7 @@ const NotFound = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4">
-      <div className="text-center max-w-md animate-slide-up">
+      <div className="text-center max-w-md">
         <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-muted mb-6">
           <FileX className="w-8 h-8 text-muted-foreground" />
         </div>

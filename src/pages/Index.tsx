@@ -97,73 +97,75 @@ const Index = () => {
 
       {/* Main Content */}
       <main className="flex-1 container mx-auto py-8 px-4 sm:px-6">
-        <TabsContent value="upload" className="mt-0 focus-visible:outline-none focus-visible:ring-0">
-          <div className="max-w-3xl mx-auto">
-            <div className="text-center mb-8">
-              <span className="inline-block rounded-full bg-primary/10 p-2 mb-3">
-                <UploadIcon className="h-6 w-6 text-primary" />
-              </span>
-              <h2 className="text-2xl font-medium mb-2">Upload Your Data</h2>
-              <p className="text-muted-foreground max-w-md mx-auto">
-                Upload ZIP or CSV files to start transforming and merging your data
-              </p>
-            </div>
-            
-            <FileDropZone onFilesProcessed={handleFilesProcessed} />
-            
-            {files.length > 0 && (
-              <div className="mt-8">
-                <FileList
-                  files={files}
-                  onToggleSelect={handleToggleSelect}
-                  onPreview={handlePreview}
-                  onRemove={handleRemove}
-                />
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsContent value="upload" className="mt-0 focus-visible:outline-none focus-visible:ring-0">
+            <div className="max-w-3xl mx-auto">
+              <div className="text-center mb-8">
+                <span className="inline-block rounded-full bg-primary/10 p-2 mb-3">
+                  <UploadIcon className="h-6 w-6 text-primary" />
+                </span>
+                <h2 className="text-2xl font-medium mb-2">Upload Your Data</h2>
+                <p className="text-muted-foreground max-w-md mx-auto">
+                  Upload ZIP or CSV files to start transforming and merging your data
+                </p>
               </div>
-            )}
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="files" className="mt-0 focus-visible:outline-none focus-visible:ring-0">
-          <div className="max-w-4xl mx-auto space-y-8">
-            <div className="text-center mb-8">
-              <span className="inline-block rounded-full bg-primary/10 p-2 mb-3">
-                <Settings className="h-6 w-6 text-primary" />
-              </span>
-              <h2 className="text-2xl font-medium mb-2">Configure and Merge</h2>
-              <p className="text-muted-foreground max-w-md mx-auto">
-                Select files and configure how you want to merge them
-              </p>
+              
+              <FileDropZone onFilesProcessed={handleFilesProcessed} />
+              
+              {files.length > 0 && (
+                <div className="mt-8">
+                  <FileList
+                    files={files}
+                    onToggleSelect={handleToggleSelect}
+                    onPreview={handlePreview}
+                    onRemove={handleRemove}
+                  />
+                </div>
+              )}
             </div>
-            
-            <FileList
-              files={files}
-              onToggleSelect={handleToggleSelect}
-              onPreview={handlePreview}
-              onRemove={handleRemove}
-            />
-            
-            <div className="pt-4">
-              <MergeConfigurator files={files} onMergeComplete={handleMergeComplete} />
+          </TabsContent>
+          
+          <TabsContent value="files" className="mt-0 focus-visible:outline-none focus-visible:ring-0">
+            <div className="max-w-4xl mx-auto space-y-8">
+              <div className="text-center mb-8">
+                <span className="inline-block rounded-full bg-primary/10 p-2 mb-3">
+                  <Settings className="h-6 w-6 text-primary" />
+                </span>
+                <h2 className="text-2xl font-medium mb-2">Configure and Merge</h2>
+                <p className="text-muted-foreground max-w-md mx-auto">
+                  Select files and configure how you want to merge them
+                </p>
+              </div>
+              
+              <FileList
+                files={files}
+                onToggleSelect={handleToggleSelect}
+                onPreview={handlePreview}
+                onRemove={handleRemove}
+              />
+              
+              <div className="pt-4">
+                <MergeConfigurator files={files} onMergeComplete={handleMergeComplete} />
+              </div>
             </div>
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="results" className="mt-0 focus-visible:outline-none focus-visible:ring-0">
-          <div className="max-w-6xl mx-auto space-y-6">
-            <div className="text-center mb-8">
-              <span className="inline-block rounded-full bg-primary/10 p-2 mb-3">
-                <PanelRight className="h-6 w-6 text-primary" />
-              </span>
-              <h2 className="text-2xl font-medium mb-2">Merged Results</h2>
-              <p className="text-muted-foreground max-w-md mx-auto">
-                View and download your merged data
-              </p>
+          </TabsContent>
+          
+          <TabsContent value="results" className="mt-0 focus-visible:outline-none focus-visible:ring-0">
+            <div className="max-w-6xl mx-auto space-y-6">
+              <div className="text-center mb-8">
+                <span className="inline-block rounded-full bg-primary/10 p-2 mb-3">
+                  <PanelRight className="h-6 w-6 text-primary" />
+                </span>
+                <h2 className="text-2xl font-medium mb-2">Merged Results</h2>
+                <p className="text-muted-foreground max-w-md mx-auto">
+                  View and download your merged data
+                </p>
+              </div>
+              
+              <DataTable data={mergedData} filename="merged-data.csv" />
             </div>
-            
-            <DataTable data={mergedData} filename="merged-data.csv" />
-          </div>
-        </TabsContent>
+          </TabsContent>
+        </Tabs>
       </main>
 
       {/* Footer */}
