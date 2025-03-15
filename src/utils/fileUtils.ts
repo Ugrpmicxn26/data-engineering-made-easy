@@ -1,4 +1,3 @@
-
 /**
  * Utility functions for file processing, CSV parsing, and merging
  */
@@ -19,10 +18,13 @@ export interface FileData {
   selected: boolean;
 }
 
+export type JoinType = "inner" | "left" | "full";
+
 export interface MergeOptions {
   files: string[];
   keyColumns: Record<string, string[]>;
   includeColumns: Record<string, string[]>;
+  joinType: JoinType;
 }
 
 export interface ColumnInfo {
@@ -100,7 +102,8 @@ export const parseCSV = (content: string): Promise<{ data: any[]; columns: strin
 export const mergeDatasets = (
   datasets: Record<string, any[]>,
   keyColumns: Record<string, string[]>,
-  includeColumns: Record<string, string[]>
+  includeColumns: Record<string, string[]>,
+  joinType: JoinType = "inner"
 ): any[] => {
   const fileIds = Object.keys(datasets);
   if (fileIds.length < 2) return [];
@@ -116,6 +119,9 @@ export const mergeDatasets = (
   // Create maps for each dataset keyed by the composite key
   const dataMaps: Record<string, Map<string, any>> = {};
   
+  // Create a set to track all composite keys from all datasets if full join
+  const allKeys = new Set<string>();
+  
   // Create a map for each dataset
   fileIds.forEach(fileId => {
     const data = datasets[fileId];
@@ -129,55 +135,88 @@ export const mergeDatasets = (
       
       if (compositeKey) {
         dataMap.set(compositeKey, row);
+        if (joinType === "full") {
+          allKeys.add(compositeKey);
+        }
       }
     });
     
     dataMaps[fileId] = dataMap;
   });
   
-  // Use base data and iterate through each row
-  baseData.forEach(baseRow => {
-    // Create composite key for base row
-    const keyValues = baseKeyColumns.map(col => String(baseRow[col] || '').trim());
-    const compositeKey = keyValues.join('|');
-    
-    if (!compositeKey) return;
-    
-    // Start with selected columns from base dataset
-    const mergedRow: Record<string, any> = {};
-    
-    // Add selected columns from base dataset
-    includeColumns[baseFileId].forEach(col => {
-      mergedRow[`${baseFileId}:${col}`] = baseRow[col];
-    });
-    
-    // Check if this key exists in other datasets and add their columns
-    let foundInAllDatasets = true;
-    
-    for (let i = 1; i < fileIds.length; i++) {
-      const fileId = fileIds[i];
-      const dataMap = dataMaps[fileId];
-      const matchingRow = dataMap.get(compositeKey);
+  // For left join and inner join, iterate through base data
+  if (joinType === "inner" || joinType === "left") {
+    baseData.forEach(baseRow => {
+      // Create composite key for base row
+      const keyValues = baseKeyColumns.map(col => String(baseRow[col] || '').trim());
+      const compositeKey = keyValues.join('|');
       
-      if (matchingRow) {
-        // Add selected columns from this dataset
-        includeColumns[fileId].forEach(col => {
-          mergedRow[`${fileId}:${col}`] = matchingRow[col];
-        });
-      } else {
-        foundInAllDatasets = false;
-        // Add null values for missing datasets
-        includeColumns[fileId].forEach(col => {
-          mergedRow[`${fileId}:${col}`] = null;
-        });
+      if (!compositeKey) return;
+      
+      // Start with selected columns from base dataset
+      const mergedRow: Record<string, any> = {};
+      
+      // Add selected columns from base dataset
+      includeColumns[baseFileId].forEach(col => {
+        mergedRow[`${baseFileId}:${col}`] = baseRow[col];
+      });
+      
+      // Check if this key exists in other datasets and add their columns
+      let foundInAllDatasets = true;
+      
+      for (let i = 1; i < fileIds.length; i++) {
+        const fileId = fileIds[i];
+        const dataMap = dataMaps[fileId];
+        const matchingRow = dataMap.get(compositeKey);
+        
+        if (matchingRow) {
+          // Add selected columns from this dataset
+          includeColumns[fileId].forEach(col => {
+            mergedRow[`${fileId}:${col}`] = matchingRow[col];
+          });
+        } else {
+          foundInAllDatasets = false;
+          // Add null values for missing datasets
+          includeColumns[fileId].forEach(col => {
+            mergedRow[`${fileId}:${col}`] = null;
+          });
+        }
       }
-    }
-    
-    // Add to result if found in at least one other dataset
-    if (foundInAllDatasets) {
+      
+      // Add to result if it meets join criteria
+      if (joinType === "inner" && foundInAllDatasets) {
+        // Inner join: Only add if found in all datasets
+        result.push(mergedRow);
+      } else if (joinType === "left") {
+        // Left join: Add all rows from left table (base)
+        result.push(mergedRow);
+      }
+    });
+  } 
+  // For full join, iterate through all unique keys
+  else if (joinType === "full") {
+    allKeys.forEach(compositeKey => {
+      const mergedRow: Record<string, any> = {};
+      
+      // Add data from each file if available
+      fileIds.forEach(fileId => {
+        const dataMap = dataMaps[fileId];
+        const matchingRow = dataMap.get(compositeKey);
+        
+        if (matchingRow) {
+          includeColumns[fileId].forEach(col => {
+            mergedRow[`${fileId}:${col}`] = matchingRow[col];
+          });
+        } else {
+          includeColumns[fileId].forEach(col => {
+            mergedRow[`${fileId}:${col}`] = null;
+          });
+        }
+      });
+      
       result.push(mergedRow);
-    }
-  });
+    });
+  }
   
   return result;
 };

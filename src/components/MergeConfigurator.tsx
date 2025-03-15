@@ -7,7 +7,8 @@ import {
   excludeColumns, 
   renameColumns,
   trimColumnValues,
-  ColumnInfo 
+  ColumnInfo,
+  JoinType
 } from "@/utils/fileUtils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,8 @@ import {
   CheckCircle,
   Tag,
   Edit,
-  Scissors
+  Scissors,
+  GitMerge
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -40,6 +42,7 @@ interface MergeConfiguratorProps {
 const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeComplete }) => {
   const [keyColumns, setKeyColumns] = useState<Record<string, string[]>>({});
   const [includeColumns, setIncludeColumns] = useState<Record<string, string[]>>({});
+  const [joinType, setJoinType] = useState<JoinType>("inner");
   const [dropColumnsFile, setDropColumnsFile] = useState<string | null>(null);
   const [columnsToExclude, setColumnsToExclude] = useState<string[]>([]);
   const [dropRowsFile, setDropRowsFile] = useState<string | null>(null);
@@ -52,23 +55,19 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
   const [currentAction, setCurrentAction] = useState<"merge" | "dropColumns" | "dropRows" | "renameColumns" | "trimColumns">("merge");
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Get only selected files
   const selectedFiles = useMemo(() => files.filter(file => file.selected), [files]);
 
-  // Initialize keyColumns and includeColumns when selected files change
   React.useEffect(() => {
     const newKeyColumns: Record<string, string[]> = {};
     const newIncludeColumns: Record<string, string[]> = {};
 
     selectedFiles.forEach(file => {
-      // If there's no key column selected yet, default to the first column
       if (!keyColumns[file.id] || keyColumns[file.id].length === 0) {
         newKeyColumns[file.id] = file.columns.length > 0 ? [file.columns[0]] : [];
       } else {
         newKeyColumns[file.id] = keyColumns[file.id];
       }
 
-      // Default to including all columns
       if (!includeColumns[file.id]) {
         newIncludeColumns[file.id] = [...file.columns];
       } else {
@@ -79,7 +78,6 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
     setKeyColumns(prev => ({ ...prev, ...newKeyColumns }));
     setIncludeColumns(prev => ({ ...prev, ...newIncludeColumns }));
 
-    // Reset drop columns/rows if the selected file is no longer available
     if (dropColumnsFile && !selectedFiles.some(f => f.id === dropColumnsFile)) {
       setDropColumnsFile(null);
       setColumnsToExclude([]);
@@ -103,7 +101,6 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
     const file = selectedFiles.find(f => f.id === fileId);
     if (!file) return;
 
-    // Find a column that's not already selected as a key
     const availableColumns = file.columns.filter(col => 
       !(keyColumns[fileId] || []).includes(col)
     );
@@ -188,7 +185,6 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
         return;
       }
 
-      // Create a new dataset with the selected columns excluded
       const modifiedData = fileToModify.data.map(row => {
         const newRow = { ...row };
         columnsToExclude.forEach(column => {
@@ -197,10 +193,8 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
         return newRow;
       });
 
-      // Get the remaining columns
       const remainingColumns = fileToModify.columns.filter(col => !columnsToExclude.includes(col));
 
-      // Update the file in our file list with the new data and columns
       const updatedFiles = [...files];
       const fileIndex = updatedFiles.findIndex(f => f.id === dropColumnsFile);
       
@@ -211,7 +205,6 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
           columns: remainingColumns
         };
         
-        // Update the file in state by calling onMergeComplete with the modified data and updated files
         onMergeComplete(modifiedData, updatedFiles);
         toast.success(`Successfully dropped ${columnsToExclude.length} columns`);
       }
@@ -220,7 +213,7 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
       toast.error("Failed to drop columns");
     } finally {
       setIsProcessing(false);
-      setColumnsToExclude([]);  // Reset for next operation
+      setColumnsToExclude([]);
     }
   };
 
@@ -239,19 +232,16 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
         return;
       }
 
-      // Parse the values to filter (comma-separated)
       const valuesToDrop = dropRowsValues
         .split(',')
         .map(v => v.trim())
         .filter(v => v.length > 0);
 
-      // Filter rows that do NOT have the specified values in the specified column
       const filteredData = fileToModify.data.filter(row => {
         const columnValue = String(row[dropRowsColumn]).trim();
         return !valuesToDrop.includes(columnValue);
       });
 
-      // Update the file in our file list
       const updatedFiles = [...files];
       const fileIndex = updatedFiles.findIndex(f => f.id === dropRowsFile);
       
@@ -261,7 +251,6 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
           data: filteredData
         };
         
-        // Update with filtered data and updated files
         onMergeComplete(filteredData, updatedFiles);
         toast.success(`Successfully filtered out ${fileToModify.data.length - filteredData.length} rows`);
       }
@@ -270,7 +259,6 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
       toast.error("Failed to drop rows");
     } finally {
       setIsProcessing(false);
-      // Reset form for next operation
       setDropRowsValues("");
     }
   };
@@ -290,15 +278,12 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
         return;
       }
 
-      // Rename columns in the dataset
       const renamedData = renameColumns(fileToModify.data, columnRenames);
 
-      // Update column names in the file metadata
       const updatedColumns = fileToModify.columns.map(col => 
         columnRenames[col] ? columnRenames[col] : col
       );
 
-      // Update the file in our file list
       const updatedFiles = [...files];
       const fileIndex = updatedFiles.findIndex(f => f.id === renameColumnsFile);
       
@@ -309,7 +294,6 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
           columns: updatedColumns
         };
         
-        // Update with renamed columns and updated files
         onMergeComplete(renamedData, updatedFiles);
         toast.success(`Successfully renamed ${Object.keys(columnRenames).length} columns`);
       }
@@ -318,7 +302,7 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
       toast.error("Failed to rename columns");
     } finally {
       setIsProcessing(false);
-      setColumnRenames({}); // Reset for next operation
+      setColumnRenames({});
     }
   };
 
@@ -337,10 +321,8 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
         return;
       }
 
-      // Trim the values in the selected columns
       const trimmedData = trimColumnValues(fileToModify.data, columnsToTrim);
 
-      // Update the file in our file list
       const updatedFiles = [...files];
       const fileIndex = updatedFiles.findIndex(f => f.id === trimColumnsFile);
       
@@ -350,7 +332,6 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
           data: trimmedData
         };
         
-        // Update with trimmed data and updated files
         onMergeComplete(trimmedData, updatedFiles);
         toast.success(`Successfully trimmed values in ${columnsToTrim.length} columns`);
       }
@@ -359,7 +340,7 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
       toast.error("Failed to trim column values");
     } finally {
       setIsProcessing(false);
-      setColumnsToTrim([]); // Reset for next operation
+      setColumnsToTrim([]);
     }
   };
 
@@ -369,7 +350,6 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
       return;
     }
 
-    // Validate that each file has at least one key column
     const invalidFiles = selectedFiles.filter(file => 
       !keyColumns[file.id] || keyColumns[file.id].length === 0
     );
@@ -382,7 +362,6 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
     setIsProcessing(true);
 
     try {
-      // Prepare datasets for merging
       const datasets: Record<string, any[]> = {};
       selectedFiles.forEach(file => {
         if (file.data) {
@@ -392,16 +371,16 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
 
       console.log("Merging datasets with key columns:", keyColumns);
       console.log("Include columns:", includeColumns);
+      console.log("Join type:", joinType);
       console.log("Datasets:", datasets);
 
-      // Merge the datasets using the updated mergeDatasets function
-      const mergedData = mergeDatasets(datasets, keyColumns, includeColumns);
+      const mergedData = mergeDatasets(datasets, keyColumns, includeColumns, joinType);
       console.log("Merged data result:", mergedData);
       
       if (mergedData.length === 0) {
         toast.warning("No matching records found between datasets");
       } else {
-        toast.success(`Successfully merged ${mergedData.length} records`);
+        toast.success(`Successfully merged ${mergedData.length} records using ${joinType} join`);
       }
       
       onMergeComplete(mergedData);
@@ -482,8 +461,48 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
           <div className="bg-muted/40 p-4 rounded-lg mb-4">
             <h3 className="text-sm font-medium mb-2">Merge Configuration</h3>
             <p className="text-xs text-muted-foreground mb-3">
-              To merge files, select key columns that match records across files. You can add multiple key columns for more precise matching.
+              To merge files, select key columns that match records across files and choose a join type.
             </p>
+            
+            <div className="mt-3">
+              <label className="text-sm font-medium">Join Type</label>
+              <div className="flex items-center mt-1">
+                <Select
+                  value={joinType}
+                  onValueChange={(value: JoinType) => setJoinType(value)}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Select join type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="inner">
+                      <div className="flex items-center">
+                        <GitMerge className="h-4 w-4 mr-2" />
+                        <span>Inner Join</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="left">
+                      <div className="flex items-center">
+                        <GitMerge className="h-4 w-4 mr-2" />
+                        <span>Left Join</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="full">
+                      <div className="flex items-center">
+                        <GitMerge className="h-4 w-4 mr-2" />
+                        <span>Full Join</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <div className="ml-4 text-xs text-muted-foreground">
+                  {joinType === "inner" && "Only include rows with matching keys in all files"}
+                  {joinType === "left" && "Include all rows from the first file, matching rows from others"}
+                  {joinType === "full" && "Include all rows from all files, with null values for missing matches"}
+                </div>
+              </div>
+            </div>
           </div>
           
           {selectedFiles.map(file => (
