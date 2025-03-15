@@ -1,5 +1,14 @@
+
 import React, { useState, useMemo } from "react";
-import { FileData, MergeOptions, mergeDatasets, filterRows, excludeColumns } from "@/utils/fileUtils";
+import { 
+  FileData, 
+  MergeOptions, 
+  mergeDatasets, 
+  filterRows, 
+  excludeColumns, 
+  renameColumns, 
+  ColumnInfo 
+} from "@/utils/fileUtils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,7 +23,10 @@ import {
   RowsIcon, 
   Key, 
   PlusCircle, 
-  MinusCircle 
+  MinusCircle,
+  CheckCircle,
+  Tag,
+  Edit
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -32,7 +44,9 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
   const [dropRowsFile, setDropRowsFile] = useState<string | null>(null);
   const [dropRowsColumn, setDropRowsColumn] = useState<string | null>(null);
   const [dropRowsValues, setDropRowsValues] = useState<string>("");
-  const [currentAction, setCurrentAction] = useState<"merge" | "dropColumns" | "dropRows">("merge");
+  const [renameColumnsFile, setRenameColumnsFile] = useState<string | null>(null);
+  const [columnRenames, setColumnRenames] = useState<Record<string, string>>({});
+  const [currentAction, setCurrentAction] = useState<"merge" | "dropColumns" | "dropRows" | "renameColumns">("merge");
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Get only selected files
@@ -72,7 +86,11 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
       setDropRowsColumn(null);
       setDropRowsValues("");
     }
-  }, [selectedFiles, keyColumns, includeColumns, dropColumnsFile, dropRowsFile]);
+    if (renameColumnsFile && !selectedFiles.some(f => f.id === renameColumnsFile)) {
+      setRenameColumnsFile(null);
+      setColumnRenames({});
+    }
+  }, [selectedFiles, keyColumns, includeColumns, dropColumnsFile, dropRowsFile, renameColumnsFile]);
 
   const handleAddKeyColumn = (fileId: string) => {
     const file = selectedFiles.find(f => f.id === fileId);
@@ -125,6 +143,21 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
     );
   };
 
+  const handleSetColumnRename = (column: string, newName: string) => {
+    if (!newName.trim()) {
+      setColumnRenames(prev => {
+        const updated = { ...prev };
+        delete updated[column];
+        return updated;
+      });
+    } else {
+      setColumnRenames(prev => ({
+        ...prev,
+        [column]: newName.trim()
+      }));
+    }
+  };
+
   const handleDropColumns = () => {
     if (!dropColumnsFile || columnsToExclude.length === 0) {
       toast.error("Please select a file and columns to drop");
@@ -172,6 +205,7 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
       toast.error("Failed to drop columns");
     } finally {
       setIsProcessing(false);
+      setColumnsToExclude([]);  // Reset for next operation
     }
   };
 
@@ -221,6 +255,55 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
       toast.error("Failed to drop rows");
     } finally {
       setIsProcessing(false);
+      // Reset form for next operation
+      setDropRowsValues("");
+    }
+  };
+
+  const handleRenameColumns = () => {
+    if (!renameColumnsFile || Object.keys(columnRenames).length === 0) {
+      toast.error("Please select a file and rename at least one column");
+      return;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      const fileToModify = files.find(file => file.id === renameColumnsFile);
+      if (!fileToModify || !fileToModify.data) {
+        toast.error("File data not found");
+        return;
+      }
+
+      // Rename columns in the dataset
+      const renamedData = renameColumns(fileToModify.data, columnRenames);
+
+      // Update column names in the file metadata
+      const updatedColumns = fileToModify.columns.map(col => 
+        columnRenames[col] ? columnRenames[col] : col
+      );
+
+      // Update the file in our file list
+      const updatedFiles = [...files];
+      const fileIndex = updatedFiles.findIndex(f => f.id === renameColumnsFile);
+      
+      if (fileIndex !== -1) {
+        updatedFiles[fileIndex] = {
+          ...fileToModify,
+          data: renamedData,
+          columns: updatedColumns
+        };
+        
+        // Update with renamed columns and updated files
+        onMergeComplete(renamedData, updatedFiles);
+        toast.success(`Successfully renamed ${Object.keys(columnRenames).length} columns`);
+      }
+    } catch (error) {
+      console.error("Error renaming columns:", error);
+      toast.error("Failed to rename columns");
+    } finally {
+      setIsProcessing(false);
+      setColumnRenames({}); // Reset for next operation
     }
   };
 
@@ -251,14 +334,8 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
         }
       });
 
-      // Convert the keyColumns format to the format expected by mergeDatasets
-      const primaryKeyColumns: Record<string, string> = {};
-      selectedFiles.forEach(file => {
-        primaryKeyColumns[file.id] = keyColumns[file.id][0]; // Use the first key column as primary
-      });
-
-      // Merge the datasets
-      const mergedData = mergeDatasets(datasets, primaryKeyColumns, includeColumns);
+      // Merge the datasets using the updated mergeDatasets function
+      const mergedData = mergeDatasets(datasets, keyColumns, includeColumns);
       onMergeComplete(mergedData);
     } catch (error) {
       console.error("Error merging datasets:", error);
@@ -285,7 +362,7 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
       <div className="space-y-2">
         <h2 className="text-lg font-medium">Configure Data Transformation</h2>
         <p className="text-sm text-muted-foreground">
-          Select options to merge, drop columns, or filter rows
+          Select options to merge, drop columns, filter rows, or rename columns
         </p>
       </div>
 
@@ -313,6 +390,14 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
         >
           <RowsIcon className="mr-2 h-4 w-4" />
           Filter Rows
+        </Button>
+        <Button 
+          variant={currentAction === "renameColumns" ? "default" : "outline"} 
+          size="sm"
+          onClick={() => setCurrentAction("renameColumns")}
+        >
+          <Tag className="mr-2 h-4 w-4" />
+          Rename Columns
         </Button>
       </div>
 
@@ -604,6 +689,86 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
                 <>
                   <RowsIcon className="mr-2 h-4 w-4" />
                   Filter Rows
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {currentAction === "renameColumns" && (
+        <div className="space-y-4">
+          <div className="bg-muted/40 p-4 rounded-lg mb-4">
+            <h3 className="text-sm font-medium mb-2">Rename Columns Configuration</h3>
+            <p className="text-xs text-muted-foreground">
+              Select a file and rename columns by providing new names.
+            </p>
+          </div>
+          
+          <div className="p-4 bg-card rounded-lg border">
+            <div className="mb-4">
+              <label className="text-sm font-medium">Select File</label>
+              <Select
+                value={renameColumnsFile || ""}
+                onValueChange={(value) => {
+                  setRenameColumnsFile(value);
+                  setColumnRenames({});
+                }}
+              >
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder="Choose a file" />
+                </SelectTrigger>
+                <SelectContent>
+                  {selectedFiles.map(file => (
+                    <SelectItem key={file.id} value={file.id}>
+                      {file.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {renameColumnsFile && (
+              <div className="mt-4">
+                <h4 className="text-sm font-medium mb-2">
+                  <Edit className="h-3.5 w-3.5 inline mr-1.5" />
+                  Rename Columns
+                </h4>
+                <div className="space-y-2 mt-2">
+                  {selectedFiles
+                    .find(f => f.id === renameColumnsFile)
+                    ?.columns.map(column => (
+                      <div key={column} className="flex items-center gap-2">
+                        <div className="w-1/3 text-sm truncate">{column}</div>
+                        <span className="text-muted-foreground">→</span>
+                        <Input
+                          placeholder="New name"
+                          value={columnRenames[column] || ""}
+                          onChange={(e) => handleSetColumnRename(column, e.target.value)}
+                          className="flex-1"
+                        />
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-center mt-6">
+            <Button
+              onClick={handleRenameColumns}
+              disabled={!renameColumnsFile || Object.keys(columnRenames).length === 0 || isProcessing}
+              className="hover-scale"
+            >
+              {isProcessing ? (
+                <>
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                  Apply Column Renames
                 </>
               )}
             </Button>

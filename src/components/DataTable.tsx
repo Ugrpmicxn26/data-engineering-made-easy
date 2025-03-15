@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from "react";
 import {
   Table,
@@ -9,20 +10,29 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft, ChevronRight, Download, Search } from "lucide-react";
-import { downloadCSV } from "@/utils/fileUtils";
+import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { ChevronLeft, ChevronRight, Download, Search, Info } from "lucide-react";
+import { downloadCSV, detectColumnTypes, ColumnInfo } from "@/utils/fileUtils";
 import TableControls, { RowFilter, PivotConfig } from "./TableControls";
 
 interface DataTableProps {
   data: any[];
   filename?: string;
   maxHeight?: string;
+  onDataUpdate?: (updatedData: any[]) => void;
 }
 
 const DataTable: React.FC<DataTableProps> = ({ 
   data, 
   filename = "exported-data.csv",
-  maxHeight = "500px"
+  maxHeight = "500px",
+  onDataUpdate
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
@@ -32,6 +42,8 @@ const DataTable: React.FC<DataTableProps> = ({
   const [activeFilters, setActiveFilters] = useState<RowFilter[]>([]);
   const [activePivot, setActivePivot] = useState<PivotConfig | null>(null);
   const [originalData] = useState<any[]>(data);
+  const [columnInfo, setColumnInfo] = useState<Record<string, ColumnInfo>>({});
+  const [showDataTypes, setShowDataTypes] = useState(false);
   const rowsPerPage = 10;
 
   useEffect(() => {
@@ -40,6 +52,10 @@ const DataTable: React.FC<DataTableProps> = ({
       setDisplayColumns(initialColumns);
       setActiveColumns(initialColumns);
       setDisplayData(data);
+      
+      // Detect data types
+      const detectedColumnInfo = detectColumnTypes(data);
+      setColumnInfo(detectedColumnInfo);
     }
   }, [data]);
 
@@ -57,6 +73,11 @@ const DataTable: React.FC<DataTableProps> = ({
           return filter.exclude ? !matches : matches;
         });
       });
+      
+      // If we have an onDataUpdate handler, call it with the filtered data
+      if (onDataUpdate) {
+        onDataUpdate(processedData);
+      }
     }
     
     if (activePivot && activePivot.pivotColumn && activePivot.valueColumn) {
@@ -96,13 +117,18 @@ const DataTable: React.FC<DataTableProps> = ({
       const pivotColumns = pivotValues.map(val => `${activePivot.pivotColumn}_${val}`);
       setDisplayColumns([...remainingColumns, ...pivotColumns]);
       setActiveColumns([...remainingColumns, ...pivotColumns]);
+      
+      // If we have an onDataUpdate handler, call it with the pivoted data
+      if (onDataUpdate) {
+        onDataUpdate(processedData);
+      }
     } else {
       setDisplayColumns(Object.keys(originalData[0]));
     }
 
     setDisplayData(processedData);
     setCurrentPage(1);
-  }, [originalData, activeFilters, activePivot]);
+  }, [originalData, activeFilters, activePivot, onDataUpdate]);
 
   const filteredData = useMemo(() => {
     if (!displayData) return [];
@@ -151,6 +177,22 @@ const DataTable: React.FC<DataTableProps> = ({
     setActivePivot(config);
   };
 
+  const toggleDataTypes = () => {
+    setShowDataTypes(!showDataTypes);
+  };
+
+  const getTypeColorClass = (type: string) => {
+    switch (type) {
+      case 'integer':
+      case 'decimal':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
+      case 'date':
+        return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300';
+      default:
+        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
+    }
+  };
+
   if (!data || data.length === 0) {
     return (
       <div className="text-center p-8 bg-muted/30 rounded-lg">
@@ -176,15 +218,27 @@ const DataTable: React.FC<DataTableProps> = ({
             />
           </div>
           
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleDownload}
-            className="hover-scale"
-          >
-            <Download className="mr-2 h-4 w-4" />
-            Download CSV
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={toggleDataTypes}
+              className={showDataTypes ? "bg-primary/10" : ""}
+            >
+              <Info className="mr-2 h-4 w-4" />
+              {showDataTypes ? "Hide Types" : "Show Types"}
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownload}
+              className="hover-scale"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Download CSV
+            </Button>
+          </div>
         </div>
 
         <TableControls 
@@ -192,6 +246,7 @@ const DataTable: React.FC<DataTableProps> = ({
           onToggleColumns={handleToggleColumns}
           onFilterRows={handleFilterRows}
           onPivot={handlePivot}
+          columnInfo={columnInfo}
         />
       </div>
 
@@ -201,7 +256,33 @@ const DataTable: React.FC<DataTableProps> = ({
             <TableRow>
               {activeColumns.map((column) => (
                 <TableHead key={column} className="font-medium">
-                  {column}
+                  <div className="flex items-center gap-1">
+                    {column}
+                    {showDataTypes && columnInfo[column] && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge 
+                              variant="outline" 
+                              className={`text-xs px-1 py-0 h-5 ${getTypeColorClass(columnInfo[column].type)}`}
+                            >
+                              {columnInfo[column].type}
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <div className="space-y-1">
+                              <p className="text-xs">Sample values:</p>
+                              <ul className="text-xs">
+                                {columnInfo[column].sampleValues.map((val, idx) => (
+                                  <li key={idx}>{val}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                  </div>
                 </TableHead>
               ))}
             </TableRow>

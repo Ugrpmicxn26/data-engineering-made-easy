@@ -21,8 +21,14 @@ export interface FileData {
 
 export interface MergeOptions {
   files: string[];
-  keyColumns: Record<string, string>;
+  keyColumns: Record<string, string[]>;
   includeColumns: Record<string, string[]>;
+}
+
+export interface ColumnInfo {
+  name: string;
+  type: string;
+  sampleValues: string[];
 }
 
 // Function to read a file as text
@@ -67,9 +73,21 @@ export const parseCSV = (content: string): Promise<{ data: any[]; columns: strin
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
-        // Get column names from the first result
-        const columns = results.meta.fields || [];
-        resolve({ data: results.data, columns });
+        // Get column names from the first result and trim them
+        const columns = (results.meta.fields || []).map(col => col.trim());
+        
+        // Trim values in all rows
+        const trimmedData = results.data.map(row => {
+          const trimmedRow: Record<string, any> = {};
+          Object.keys(row).forEach(key => {
+            const trimmedKey = key.trim();
+            const value = row[key];
+            trimmedRow[trimmedKey] = typeof value === 'string' ? value.trim() : value;
+          });
+          return trimmedRow;
+        });
+        
+        resolve({ data: trimmedData, columns });
       },
       error: (error) => {
         reject(error);
@@ -81,7 +99,7 @@ export const parseCSV = (content: string): Promise<{ data: any[]; columns: strin
 // Function to merge multiple datasets based on key columns
 export const mergeDatasets = (
   datasets: Record<string, any[]>,
-  keyColumns: Record<string, string>,
+  keyColumns: Record<string, string[]>,
   includeColumns: Record<string, string[]>
 ): any[] => {
   const fileIds = Object.keys(datasets);
@@ -89,36 +107,42 @@ export const mergeDatasets = (
 
   // Use the first dataset as the base
   const baseFileId = fileIds[0];
-  const baseKeyColumn = keyColumns[baseFileId];
+  const baseKeyColumns = keyColumns[baseFileId];
   const baseData = datasets[baseFileId];
   const result: Record<string, any> = {};
 
   // Create a map of key values to rows for the base dataset
   baseData.forEach((row) => {
-    const keyValue = row[baseKeyColumn];
-    if (keyValue) {
+    // Create composite key from multiple key columns
+    const keyValues = baseKeyColumns.map(col => String(row[col] || '').trim());
+    const compositeKey = keyValues.join('|');
+    
+    if (compositeKey) {
       // Include only selected columns from base file
       const newRow: Record<string, any> = {};
       includeColumns[baseFileId].forEach((col) => {
         // Prefixing columns with file id to avoid column name conflicts
         newRow[`${baseFileId}:${col}`] = row[col];
       });
-      result[keyValue] = newRow;
+      result[compositeKey] = newRow;
     }
   });
 
   // Merge additional datasets
   for (let i = 1; i < fileIds.length; i++) {
     const fileId = fileIds[i];
-    const keyColumn = keyColumns[fileId];
+    const fileKeyColumns = keyColumns[fileId];
     const data = datasets[fileId];
 
     data.forEach((row) => {
-      const keyValue = row[keyColumn];
-      if (keyValue && result[keyValue]) {
+      // Create composite key from multiple key columns for this dataset
+      const keyValues = fileKeyColumns.map(col => String(row[col] || '').trim());
+      const compositeKey = keyValues.join('|');
+      
+      if (compositeKey && result[compositeKey]) {
         // Add columns from this dataset to existing rows
         includeColumns[fileId].forEach((col) => {
-          result[keyValue][`${fileId}:${col}`] = row[col];
+          result[compositeKey][`${fileId}:${col}`] = row[col];
         });
       }
     });
@@ -126,6 +150,40 @@ export const mergeDatasets = (
 
   // Convert result object back to array
   return Object.values(result);
+};
+
+// Detect data types for columns
+export const detectColumnTypes = (data: any[]): Record<string, ColumnInfo> => {
+  if (!data || data.length === 0) return {};
+  
+  const columns = Object.keys(data[0]);
+  const result: Record<string, ColumnInfo> = {};
+  
+  columns.forEach(col => {
+    const values = data.map(row => row[col]).filter(Boolean);
+    let type = 'string';
+    
+    // Get up to 3 sample values
+    const sampleValues = values.slice(0, 3).map(v => String(v));
+    
+    // Check if all values are numeric
+    if (values.every(val => !isNaN(Number(val)))) {
+      // Check if they're all integers
+      if (values.every(val => Number.isInteger(Number(val)))) {
+        type = 'integer';
+      } else {
+        type = 'decimal';
+      }
+    } 
+    // Check if all values are dates
+    else if (values.every(val => !isNaN(Date.parse(String(val))))) {
+      type = 'date';
+    }
+    
+    result[col] = { name: col, type, sampleValues };
+  });
+  
+  return result;
 };
 
 // Function to filter rows based on values in a specific column
@@ -139,7 +197,7 @@ export const filterRows = (
 
   return data.filter((row) => {
     const cellValue = String(row[column] || '').trim();
-    const valueExists = values.some(v => cellValue === v);
+    const valueExists = values.some(v => cellValue === v.trim());
     return exclude ? !valueExists : valueExists;
   });
 };
@@ -155,6 +213,23 @@ export const excludeColumns = (
     const newRow = { ...row };
     columns.forEach((col) => {
       delete newRow[col];
+    });
+    return newRow;
+  });
+};
+
+// Function to rename columns in a dataset
+export const renameColumns = (
+  data: any[],
+  columnMap: Record<string, string>
+): any[] => {
+  if (!data || Object.keys(columnMap).length === 0) return data;
+
+  return data.map((row) => {
+    const newRow: Record<string, any> = {};
+    Object.keys(row).forEach(key => {
+      const newKey = columnMap[key] || key;
+      newRow[newKey] = row[key];
     });
     return newRow;
   });

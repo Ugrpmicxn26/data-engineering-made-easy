@@ -70,6 +70,11 @@ const Index = () => {
     setShowUploader(prev => !prev);
   };
 
+  // Update data table data (when filtering/pivoting in results view)
+  const handleResultDataUpdate = (updatedData: any[]) => {
+    setMergedData(updatedData);
+  };
+
   // Count selected files
   const selectedFilesCount = files.filter(file => file.selected).length;
 
@@ -126,8 +131,8 @@ const Index = () => {
 
       {/* Main Content */}
       <main className="flex-1 container mx-auto py-8 px-4 sm:px-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsContent value="upload" className="mt-0 focus-visible:outline-none focus-visible:ring-0">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
+          <TabsContent value="upload" className="mt-0 focus-visible:outline-none focus-visible:ring-0 h-full">
             <div className="max-w-3xl mx-auto">
               <div className="text-center mb-8">
                 <span className="inline-block rounded-full bg-primary/10 p-2 mb-3">
@@ -154,7 +159,7 @@ const Index = () => {
             </div>
           </TabsContent>
           
-          <TabsContent value="files" className="mt-0 focus-visible:outline-none focus-visible:ring-0">
+          <TabsContent value="files" className="mt-0 focus-visible:outline-none focus-visible:ring-0 h-full">
             <div className="max-w-4xl mx-auto space-y-8">
               {/* Show uploader if requested */}
               {showUploader && (
@@ -190,7 +195,7 @@ const Index = () => {
             </div>
           </TabsContent>
           
-          <TabsContent value="results" className="mt-0 focus-visible:outline-none focus-visible:ring-0">
+          <TabsContent value="results" className="mt-0 focus-visible:outline-none focus-visible:ring-0 h-full">
             <div className="max-w-6xl mx-auto space-y-6">
               {/* Show uploader if requested */}
               {showUploader && (
@@ -213,7 +218,11 @@ const Index = () => {
                 </p>
               </div>
               
-              <DataTable data={mergedData} filename="merged-data.csv" />
+              <DataTable 
+                data={mergedData} 
+                filename="merged-data.csv" 
+                onDataUpdate={handleResultDataUpdate}
+              />
             </div>
           </TabsContent>
         </Tabs>
