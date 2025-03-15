@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { FileData } from "@/utils/fileUtils";
 import FileDropZone from "@/components/FileDropZone";
@@ -6,10 +5,12 @@ import FileList from "@/components/FileList";
 import MergeConfigurator from "@/components/MergeConfigurator";
 import DataTable from "@/components/DataTable";
 import FilePreviewModal from "@/components/FilePreviewModal";
+import CodeTransformer from "@/components/CodeTransformer";
+import ColumnTypeChanger from "@/components/ColumnTypeChanger";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { UploadIcon, Settings, Layers, PanelRight, SlidersHorizontal, PlusCircle } from "lucide-react";
+import { UploadIcon, Settings, Layers, PanelRight, SlidersHorizontal, PlusCircle, Code2, Type } from "lucide-react";
 
 const Index = () => {
   const [files, setFiles] = useState<FileData[]>([]);
@@ -19,7 +20,6 @@ const Index = () => {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [showUploader, setShowUploader] = useState(false);
 
-  // Handle files being processed
   const handleFilesProcessed = (newFiles: FileData[]) => {
     setFiles(prev => [...prev, ...newFiles]);
     if (newFiles.length > 0) {
@@ -28,7 +28,6 @@ const Index = () => {
     }
   };
 
-  // Toggle file selection
   const handleToggleSelect = (fileId: string) => {
     setFiles(prev => 
       prev.map(file => 
@@ -37,7 +36,6 @@ const Index = () => {
     );
   };
 
-  // Preview a file
   const handlePreview = (fileId: string) => {
     const file = files.find(f => f.id === fileId);
     if (file) {
@@ -46,21 +44,17 @@ const Index = () => {
     }
   };
 
-  // Remove a file
   const handleRemove = (fileId: string) => {
     setFiles(prev => prev.filter(file => file.id !== fileId));
     toast.success("File removed");
   };
 
-  // Handle merge or transform complete
   const handleMergeComplete = (data: any[], updatedFiles?: FileData[], saveAsMergedFile?: boolean) => {
     setMergedData(data);
     
-    // Update files state if we have updated files or a new merged file
     if (updatedFiles) {
       setFiles(updatedFiles);
       
-      // If saving as a merged file, show a specific toast message
       if (saveAsMergedFile) {
         const mergedFile = updatedFiles.find(f => f.id.startsWith('merged-'));
         if (mergedFile) {
@@ -69,31 +63,50 @@ const Index = () => {
       }
     }
     
-    // Switch to results tab to show the data
     setActiveTab("results");
     
-    // Only show the generic success message if not saving as a merged file
     if (!saveAsMergedFile) {
       toast.success(`Successfully processed ${data.length} rows`);
     }
   };
-  
-  // Toggle the uploader visibility
+
   const toggleUploader = () => {
     setShowUploader(prev => !prev);
   };
 
-  // Update data table data (when filtering/pivoting in results view)
+  const handleTransformComplete = (data: any[], sourceFileId: string) => {
+    const sourceFile = files.find(f => f.id === sourceFileId);
+    let newFileName = "transformed-data.csv";
+    if (sourceFile) {
+      const baseName = sourceFile.name.replace(/\.[^/.]+$/, "");
+      newFileName = `${baseName}-transformed.csv`;
+    }
+    
+    const newFileId = `transformed-${Date.now()}`;
+    const newFile: FileData = {
+      id: newFileId,
+      name: newFileName,
+      type: "csv",
+      size: 0,
+      data: data,
+      columns: data.length > 0 ? Object.keys(data[0]) : [],
+      selected: true,
+    };
+    
+    setFiles(prev => [...prev, newFile]);
+    setMergedData(data);
+    toast.success(`Transformation complete. Created new file: ${newFileName}`);
+    setActiveTab("files");
+  };
+
   const handleResultDataUpdate = (updatedData: any[]) => {
     setMergedData(updatedData);
   };
 
-  // Count selected files
   const selectedFilesCount = files.filter(file => file.selected).length;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
       <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto py-4 px-4 sm:px-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -125,7 +138,6 @@ const Index = () => {
                 </TabsList>
               </Tabs>
               
-              {/* Upload more files button */}
               {files.length > 0 && (
                 <Button 
                   variant="outline" 
@@ -142,7 +154,6 @@ const Index = () => {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="flex-1 container mx-auto py-8 px-4 sm:px-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
           <TabsContent value="upload" className="mt-0 focus-visible:outline-none focus-visible:ring-0 h-full">
@@ -174,7 +185,6 @@ const Index = () => {
           
           <TabsContent value="files" className="mt-0 focus-visible:outline-none focus-visible:ring-0 h-full">
             <div className="max-w-4xl mx-auto space-y-8">
-              {/* Show uploader if requested */}
               {showUploader && (
                 <div className="animate-fade-in border rounded-lg p-6 mb-6">
                   <div className="text-center mb-4">
@@ -202,6 +212,18 @@ const Index = () => {
                 onRemove={handleRemove}
               />
               
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                <CodeTransformer 
+                  files={files} 
+                  onTransformComplete={handleTransformComplete}
+                />
+                
+                <ColumnTypeChanger 
+                  files={files} 
+                  onTypeChangeComplete={handleTransformComplete}
+                />
+              </div>
+              
               <div className="pt-4">
                 <MergeConfigurator files={files} onMergeComplete={handleMergeComplete} />
               </div>
@@ -210,7 +232,6 @@ const Index = () => {
           
           <TabsContent value="results" className="mt-0 focus-visible:outline-none focus-visible:ring-0 h-full">
             <div className="max-w-6xl mx-auto space-y-6">
-              {/* Show uploader if requested */}
               {showUploader && (
                 <div className="animate-fade-in border rounded-lg p-6 mb-6">
                   <div className="text-center mb-4">
@@ -241,7 +262,6 @@ const Index = () => {
         </Tabs>
       </main>
 
-      {/* Footer */}
       <footer className="border-t border-border py-6 mt-auto">
         <div className="container mx-auto px-4 sm:px-6 text-center text-sm text-muted-foreground">
           <p>Zip Merge Master — A data transformation tool</p>
@@ -249,7 +269,6 @@ const Index = () => {
         </div>
       </footer>
 
-      {/* File Preview Modal */}
       <FilePreviewModal
         file={previewFile}
         isOpen={isPreviewOpen}
@@ -260,4 +279,3 @@ const Index = () => {
 };
 
 export default Index;
-
