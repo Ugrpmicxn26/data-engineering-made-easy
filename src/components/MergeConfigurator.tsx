@@ -7,8 +7,10 @@ import {
   excludeColumns, 
   renameColumns,
   trimColumnValues,
+  pivotData,
   ColumnInfo,
-  JoinType
+  JoinType,
+  PivotConfig
 } from "@/utils/fileUtils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -29,20 +31,23 @@ import {
   Tag,
   Edit,
   Scissors,
-  GitMerge
+  GitMerge,
+  Save,
+  Grid3X3
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface MergeConfiguratorProps {
   files: FileData[];
-  onMergeComplete: (data: any[], updatedFiles?: FileData[]) => void;
+  onMergeComplete: (data: any[], updatedFiles?: FileData[], saveAsMergedFile?: boolean) => void;
 }
 
 const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeComplete }) => {
   const [keyColumns, setKeyColumns] = useState<Record<string, string[]>>({});
   const [includeColumns, setIncludeColumns] = useState<Record<string, string[]>>({});
   const [joinType, setJoinType] = useState<JoinType>("inner");
+  const [baseFileId, setBaseFileId] = useState<string | null>(null);
   const [dropColumnsFile, setDropColumnsFile] = useState<string | null>(null);
   const [columnsToExclude, setColumnsToExclude] = useState<string[]>([]);
   const [dropRowsFile, setDropRowsFile] = useState<string | null>(null);
@@ -52,7 +57,16 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
   const [columnRenames, setColumnRenames] = useState<Record<string, string>>({});
   const [trimColumnsFile, setTrimColumnsFile] = useState<string | null>(null);
   const [columnsToTrim, setColumnsToTrim] = useState<string[]>([]);
-  const [currentAction, setCurrentAction] = useState<"merge" | "dropColumns" | "dropRows" | "renameColumns" | "trimColumns">("merge");
+  const [pivotFile, setPivotFile] = useState<string | null>(null);
+  const [pivotConfig, setPivotConfig] = useState<PivotConfig>({
+    rowFields: [],
+    columnField: "",
+    valueField: "",
+    aggregation: "sum"
+  });
+  const [saveMergedFile, setSaveMergedFile] = useState(true);
+  const [mergedFileName, setMergedFileName] = useState("merged-data");
+  const [currentAction, setCurrentAction] = useState<"merge" | "dropColumns" | "dropRows" | "renameColumns" | "trimColumns" | "pivot">("merge");
   const [isProcessing, setIsProcessing] = useState(false);
 
   const selectedFiles = useMemo(() => files.filter(file => file.selected), [files]);
@@ -78,6 +92,10 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
     setKeyColumns(prev => ({ ...prev, ...newKeyColumns }));
     setIncludeColumns(prev => ({ ...prev, ...newIncludeColumns }));
 
+    if (baseFileId && !selectedFiles.some(f => f.id === baseFileId)) {
+      setBaseFileId(selectedFiles.length > 0 ? selectedFiles[0].id : null);
+    }
+
     if (dropColumnsFile && !selectedFiles.some(f => f.id === dropColumnsFile)) {
       setDropColumnsFile(null);
       setColumnsToExclude([]);
@@ -94,6 +112,15 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
     if (trimColumnsFile && !selectedFiles.some(f => f.id === trimColumnsFile)) {
       setTrimColumnsFile(null);
       setColumnsToTrim([]);
+    }
+    if (pivotFile && !selectedFiles.some(f => f.id === pivotFile)) {
+      setPivotFile(null);
+      setPivotConfig({
+        rowFields: [],
+        columnField: "",
+        valueField: "",
+        aggregation: "sum"
+      });
     }
   }, [selectedFiles]);
 
@@ -344,6 +371,52 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
     }
   };
 
+  const handlePivotData = () => {
+    if (!pivotFile || !pivotConfig.columnField || !pivotConfig.valueField || pivotConfig.rowFields.length === 0) {
+      toast.error("Please complete pivot configuration");
+      return;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      const fileToModify = files.find(file => file.id === pivotFile);
+      if (!fileToModify || !fileToModify.data) {
+        toast.error("File data not found");
+        return;
+      }
+
+      const pivotedData = pivotData(fileToModify.data, pivotConfig);
+      
+      if (pivotedData.length === 0) {
+        toast.warning("No data after pivot operation");
+        setIsProcessing(false);
+        return;
+      }
+
+      const pivotColumns = Object.keys(pivotedData[0]);
+
+      const pivotedFile: FileData = {
+        id: `pivot-${Date.now()}`,
+        name: `${fileToModify.name}-pivoted`,
+        type: "text/csv",
+        size: 0,
+        content: "",
+        data: pivotedData,
+        columns: pivotColumns,
+        selected: true
+      };
+
+      onMergeComplete(pivotedData, [...files, pivotedFile]);
+      toast.success(`Successfully pivoted data with ${pivotedData.length} rows`);
+    } catch (error) {
+      console.error("Error pivoting data:", error);
+      toast.error("Failed to pivot data");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleMerge = async () => {
     if (selectedFiles.length < 2) {
       toast.error("Please select at least two files to merge");
@@ -359,6 +432,10 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
       return;
     }
 
+    if (joinType === "left" && (!baseFileId || !selectedFiles.some(f => f.id === baseFileId))) {
+      setBaseFileId(selectedFiles[0].id);
+    }
+
     setIsProcessing(true);
 
     try {
@@ -372,9 +449,10 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
       console.log("Merging datasets with key columns:", keyColumns);
       console.log("Include columns:", includeColumns);
       console.log("Join type:", joinType);
+      console.log("Base file for left join:", baseFileId);
       console.log("Datasets:", datasets);
 
-      const mergedData = mergeDatasets(datasets, keyColumns, includeColumns, joinType);
+      const mergedData = mergeDatasets(datasets, keyColumns, includeColumns, joinType, baseFileId || undefined);
       console.log("Merged data result:", mergedData);
       
       if (mergedData.length === 0) {
@@ -383,7 +461,23 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
         toast.success(`Successfully merged ${mergedData.length} records using ${joinType} join`);
       }
       
-      onMergeComplete(mergedData);
+      if (saveMergedFile && mergedData.length > 0) {
+        const mergedColumns = Object.keys(mergedData[0]);
+        const mergedFile: FileData = {
+          id: `merged-${Date.now()}`,
+          name: `${mergedFileName}.csv`,
+          type: "text/csv",
+          size: new Blob([JSON.stringify(mergedData)]).size,
+          content: "",
+          data: mergedData,
+          columns: mergedColumns,
+          selected: false
+        };
+        
+        onMergeComplete(mergedData, [...files, mergedFile], true);
+      } else {
+        onMergeComplete(mergedData);
+      }
     } catch (error) {
       console.error("Error merging datasets:", error);
       toast.error("Failed to merge datasets");
@@ -409,7 +503,7 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
       <div className="space-y-2">
         <h2 className="text-lg font-medium">Configure Data Transformation</h2>
         <p className="text-sm text-muted-foreground">
-          Select options to merge, drop columns, filter rows, rename columns, or trim values
+          Select options to merge, drop columns, filter rows, rename columns, trim values, or create pivot tables
         </p>
       </div>
 
@@ -454,6 +548,14 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
           <Scissors className="mr-2 h-4 w-4" />
           Trim Values
         </Button>
+        <Button 
+          variant={currentAction === "pivot" ? "default" : "outline"} 
+          size="sm"
+          onClick={() => setCurrentAction("pivot")}
+        >
+          <Grid3X3 className="mr-2 h-4 w-4" />
+          Pivot Table
+        </Button>
       </div>
 
       {currentAction === "merge" && (
@@ -469,7 +571,14 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
               <div className="flex items-center mt-1">
                 <Select
                   value={joinType}
-                  onValueChange={(value: JoinType) => setJoinType(value)}
+                  onValueChange={(value: JoinType) => {
+                    setJoinType(value);
+                    if (value !== "left") {
+                      setBaseFileId(null);
+                    } else if (selectedFiles.length > 0) {
+                      setBaseFileId(selectedFiles[0].id);
+                    }
+                  }}
                 >
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="Select join type" />
@@ -498,11 +607,72 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
                 
                 <div className="ml-4 text-xs text-muted-foreground">
                   {joinType === "inner" && "Only include rows with matching keys in all files"}
-                  {joinType === "left" && "Include all rows from the first file, matching rows from others"}
+                  {joinType === "left" && "Include all rows from the base file, matching rows from others"}
                   {joinType === "full" && "Include all rows from all files, with null values for missing matches"}
                 </div>
               </div>
             </div>
+
+            {joinType === "left" && (
+              <div className="mt-3">
+                <label className="text-sm font-medium">Base File (Left side of join)</label>
+                <div className="flex items-center mt-1">
+                  <Select
+                    value={baseFileId || ""}
+                    onValueChange={(value) => setBaseFileId(value)}
+                  >
+                    <SelectTrigger className="w-[280px]">
+                      <SelectValue placeholder="Select base file for left join" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {selectedFiles.map(file => (
+                        <SelectItem key={file.id} value={file.id}>
+                          {file.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  
+                  <div className="ml-4 text-xs text-muted-foreground">
+                    All rows from this file will be included in the result
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-4 flex items-center space-x-2">
+              <Checkbox
+                id="save-merged"
+                checked={saveMergedFile}
+                onCheckedChange={(checked) => setSaveMergedFile(checked as boolean)}
+              />
+              <div>
+                <label
+                  htmlFor="save-merged"
+                  className="text-sm font-medium cursor-pointer"
+                >
+                  Save merged result as file
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  Makes the merged result available for further merges
+                </p>
+              </div>
+            </div>
+
+            {saveMergedFile && (
+              <div className="mt-2">
+                <label className="text-sm font-medium">Merged File Name</label>
+                <div className="flex items-center mt-1">
+                  <Input
+                    value={mergedFileName}
+                    onChange={(e) => setMergedFileName(e.target.value)}
+                    placeholder="Enter merged file name"
+                    className="w-[280px]"
+                  />
+                  <span className="ml-2 text-muted-foreground">.csv</span>
+                </div>
+              </div>
+            )}
           </div>
           
           {selectedFiles.map(file => (
@@ -605,6 +775,195 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
                 <>
                   <Layers className="mr-2 h-4 w-4" />
                   Merge Selected Files
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {currentAction === "pivot" && (
+        <div className="space-y-4">
+          <div className="bg-muted/40 p-4 rounded-lg mb-4">
+            <h3 className="text-sm font-medium mb-2">Pivot Table Configuration</h3>
+            <p className="text-xs text-muted-foreground">
+              Create a pivot table by selecting row fields, column field, value field, and aggregation type.
+            </p>
+          </div>
+          
+          <div className="p-4 bg-card rounded-lg border">
+            <div className="mb-4">
+              <label className="text-sm font-medium">Select File</label>
+              <Select
+                value={pivotFile || ""}
+                onValueChange={(value) => {
+                  setPivotFile(value);
+                  setPivotConfig({
+                    rowFields: [],
+                    columnField: "",
+                    valueField: "",
+                    aggregation: "sum"
+                  });
+                }}
+              >
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder="Choose a file" />
+                </SelectTrigger>
+                <SelectContent>
+                  {selectedFiles.map(file => (
+                    <SelectItem key={file.id} value={file.id}>
+                      {file.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {pivotFile && (
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Row Fields (Groups)</h4>
+                  {pivotConfig.rowFields.map((field, index) => (
+                    <div key={index} className="flex items-center gap-2 mb-2">
+                      <Select
+                        value={field}
+                        onValueChange={(value) => handlePivotRowFieldChange(index, value)}
+                      >
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Select a field" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {selectedFiles
+                            .find(f => f.id === pivotFile)
+                            ?.columns.filter(col => 
+                              col !== pivotConfig.columnField && 
+                              col !== pivotConfig.valueField &&
+                              !pivotConfig.rowFields.includes(col)
+                            )
+                            .map(col => (
+                              <SelectItem key={col} value={col}>
+                                {col}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => handleRemovePivotRowField(index)}
+                      >
+                        <MinusCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddPivotRowField}
+                    disabled={
+                      !pivotFile || 
+                      pivotConfig.rowFields.length >= 
+                        (selectedFiles.find(f => f.id === pivotFile)?.columns.length || 0) - 2
+                    }
+                  >
+                    <PlusCircle className="mr-2 h-3.5 w-3.5" />
+                    Add Row Field
+                  </Button>
+                </div>
+                
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Column Field</h4>
+                  <Select
+                    value={pivotConfig.columnField}
+                    onValueChange={(value) => setPivotConfig(prev => ({ ...prev, columnField: value }))}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select column field" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {selectedFiles
+                        .find(f => f.id === pivotFile)
+                        ?.columns.filter(col => 
+                          !pivotConfig.rowFields.includes(col) && col !== pivotConfig.valueField
+                        )
+                        .map(col => (
+                          <SelectItem key={col} value={col}>
+                            {col}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Value Field</h4>
+                  <Select
+                    value={pivotConfig.valueField}
+                    onValueChange={(value) => setPivotConfig(prev => ({ ...prev, valueField: value }))}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select value field" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {selectedFiles
+                        .find(f => f.id === pivotFile)
+                        ?.columns.filter(col => 
+                          !pivotConfig.rowFields.includes(col) && col !== pivotConfig.columnField
+                        )
+                        .map(col => (
+                          <SelectItem key={col} value={col}>
+                            {col}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Aggregation Type</h4>
+                  <Select
+                    value={pivotConfig.aggregation}
+                    onValueChange={(value: "sum" | "count" | "average" | "min" | "max") => 
+                      setPivotConfig(prev => ({ ...prev, aggregation: value }))
+                    }
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select aggregation type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sum">Sum</SelectItem>
+                      <SelectItem value="count">Count</SelectItem>
+                      <SelectItem value="average">Average</SelectItem>
+                      <SelectItem value="min">Minimum</SelectItem>
+                      <SelectItem value="max">Maximum</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-center mt-6">
+            <Button
+              onClick={handlePivotData}
+              disabled={
+                !pivotFile || 
+                !pivotConfig.columnField || 
+                !pivotConfig.valueField || 
+                pivotConfig.rowFields.length === 0 ||
+                isProcessing
+              }
+              className="hover-scale"
+            >
+              {isProcessing ? (
+                <>
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Creating Pivot Table...
+                </>
+              ) : (
+                <>
+                  <Grid3X3 className="mr-2 h-4 w-4" />
+                  Create Pivot Table
                 </>
               )}
             </Button>

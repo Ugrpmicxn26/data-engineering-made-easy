@@ -22,6 +22,7 @@ export type JoinType = "inner" | "left" | "full";
 
 export interface MergeOptions {
   files: string[];
+  baseFileId?: string; // New field to specify which file is the base for left join
   keyColumns: Record<string, string[]>;
   includeColumns: Record<string, string[]>;
   joinType: JoinType;
@@ -31,6 +32,13 @@ export interface ColumnInfo {
   name: string;
   type: string;
   sampleValues: string[];
+}
+
+export interface PivotConfig {
+  rowFields: string[];
+  columnField: string;
+  valueField: string;
+  aggregation: "sum" | "count" | "average" | "min" | "max";
 }
 
 // Function to read a file as text
@@ -103,15 +111,30 @@ export const mergeDatasets = (
   datasets: Record<string, any[]>,
   keyColumns: Record<string, string[]>,
   includeColumns: Record<string, string[]>,
-  joinType: JoinType = "inner"
+  joinType: JoinType = "inner",
+  baseFileId?: string
 ): any[] => {
   const fileIds = Object.keys(datasets);
   if (fileIds.length < 2) return [];
 
-  // Use the first dataset as the base
-  const baseFileId = fileIds[0];
-  const baseKeyColumns = keyColumns[baseFileId];
-  const baseData = datasets[baseFileId];
+  // Determine the base file ID
+  // For left join, use specified baseFileId or default to first file
+  // For other joins, base file doesn't matter as much
+  const baseFileId_ = (joinType === "left" && baseFileId) ? baseFileId : fileIds[0];
+  
+  // Ensure the base file is first in the fileIds array for left join
+  if (joinType === "left" && baseFileId_ !== fileIds[0]) {
+    // Remove the base file from its current position
+    const baseIndex = fileIds.indexOf(baseFileId_);
+    if (baseIndex > 0) {
+      fileIds.splice(baseIndex, 1);
+      // Insert at the beginning
+      fileIds.unshift(baseFileId_);
+    }
+  }
+
+  const baseKeyColumns = keyColumns[baseFileId_];
+  const baseData = datasets[baseFileId_];
   
   // Create a results array to store merged rows
   const result: any[] = [];
@@ -157,8 +180,8 @@ export const mergeDatasets = (
       const mergedRow: Record<string, any> = {};
       
       // Add selected columns from base dataset
-      includeColumns[baseFileId].forEach(col => {
-        mergedRow[`${baseFileId}:${col}`] = baseRow[col];
+      includeColumns[baseFileId_].forEach(col => {
+        mergedRow[`${baseFileId_}:${col}`] = baseRow[col];
       });
       
       // Check if this key exists in other datasets and add their columns
@@ -348,4 +371,90 @@ export const downloadCSV = (data: any[], filename: string): void => {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+};
+
+// Function to pivot data
+export const pivotData = (
+  data: any[],
+  config: PivotConfig
+): any[] => {
+  if (!data || data.length === 0) return [];
+  
+  const { rowFields, columnField, valueField, aggregation } = config;
+  
+  // Create a map to store the aggregated values
+  const pivotMap = new Map<string, Record<string, number>>();
+  
+  // Collect all unique column values
+  const columnValues = new Set<string>();
+  
+  // Process each row in the original data
+  data.forEach(row => {
+    // Create a composite key from the row fields
+    const rowKey = rowFields.map(field => String(row[field] || '')).join('|');
+    
+    // Get the column value and value to aggregate
+    const colValue = String(row[columnField] || '');
+    const val = Number(row[valueField]) || 0;
+    
+    // Add to column values set
+    columnValues.add(colValue);
+    
+    // Get or create the row in our pivot map
+    let pivotRow = pivotMap.get(rowKey);
+    if (!pivotRow) {
+      pivotRow = {};
+      rowFields.forEach(field => {
+        pivotRow![field] = row[field];
+      });
+      pivotMap.set(rowKey, pivotRow);
+    }
+    
+    // Apply the aggregation
+    if (!(colValue in pivotRow)) {
+      pivotRow[colValue] = val;
+    } else {
+      switch (aggregation) {
+        case "sum":
+          pivotRow[colValue] += val;
+          break;
+        case "count":
+          pivotRow[colValue] += 1;
+          break;
+        case "average":
+          // For average, we'll store [sum, count] and calculate later
+          if (!Array.isArray(pivotRow[colValue])) {
+            pivotRow[colValue] = [pivotRow[colValue], 1];
+          }
+          pivotRow[colValue][0] += val;
+          pivotRow[colValue][1] += 1;
+          break;
+        case "min":
+          pivotRow[colValue] = Math.min(pivotRow[colValue], val);
+          break;
+        case "max":
+          pivotRow[colValue] = Math.max(pivotRow[colValue], val);
+          break;
+        default:
+          pivotRow[colValue] += val;
+      }
+    }
+  });
+  
+  // Convert the map to an array of objects
+  const result = Array.from(pivotMap.values());
+  
+  // For average aggregation, calculate the final averages
+  if (aggregation === "average") {
+    result.forEach(row => {
+      columnValues.forEach(colValue => {
+        if (Array.isArray(row[colValue])) {
+          const [sum, count] = row[colValue];
+          row[colValue] = count > 0 ? sum / count : 0;
+        }
+      });
+    });
+  }
+  
+  return result;
 };

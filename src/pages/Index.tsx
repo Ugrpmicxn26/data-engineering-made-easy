@@ -53,16 +53,29 @@ const Index = () => {
   };
 
   // Handle merge or transform complete
-  const handleMergeComplete = (data: any[], updatedFiles?: FileData[]) => {
+  const handleMergeComplete = (data: any[], updatedFiles?: FileData[], saveAsMergedFile?: boolean) => {
     setMergedData(data);
     
-    // If we have updated files (after column drop or row filtering), update the files state
+    // Update files state if we have updated files or a new merged file
     if (updatedFiles) {
       setFiles(updatedFiles);
+      
+      // If saving as a merged file, show a specific toast message
+      if (saveAsMergedFile) {
+        const mergedFile = updatedFiles.find(f => f.id.startsWith('merged-'));
+        if (mergedFile) {
+          toast.success(`Merged file "${mergedFile.name}" saved and available for further operations`);
+        }
+      }
     }
     
+    // Switch to results tab to show the data
     setActiveTab("results");
-    toast.success(`Successfully processed ${data.length} rows`);
+    
+    // Only show the generic success message if not saving as a merged file
+    if (!saveAsMergedFile) {
+      toast.success(`Successfully processed ${data.length} rows`);
+    }
   };
   
   // Toggle the uploader visibility
@@ -178,7 +191,7 @@ const Index = () => {
                 </span>
                 <h2 className="text-2xl font-medium mb-2">Configure and Transform</h2>
                 <p className="text-muted-foreground max-w-md mx-auto">
-                  Select files and choose transformation operations: merge, drop columns, or filter rows
+                  Select files and choose transformation operations: merge, pivot, drop columns, or filter rows
                 </p>
               </div>
               
@@ -247,3 +260,4 @@ const Index = () => {
 };
 
 export default Index;
+
