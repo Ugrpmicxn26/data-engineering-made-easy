@@ -109,47 +109,77 @@ export const mergeDatasets = (
   const baseFileId = fileIds[0];
   const baseKeyColumns = keyColumns[baseFileId];
   const baseData = datasets[baseFileId];
-  const result: Record<string, any> = {};
-
-  // Create a map of key values to rows for the base dataset
-  baseData.forEach((row) => {
-    // Create composite key from multiple key columns
-    const keyValues = baseKeyColumns.map(col => String(row[col] || '').trim());
-    const compositeKey = keyValues.join('|');
-    
-    if (compositeKey) {
-      // Include only selected columns from base file
-      const newRow: Record<string, any> = {};
-      includeColumns[baseFileId].forEach((col) => {
-        // Prefixing columns with file id to avoid column name conflicts
-        newRow[`${baseFileId}:${col}`] = row[col];
-      });
-      result[compositeKey] = newRow;
-    }
-  });
-
-  // Merge additional datasets
-  for (let i = 1; i < fileIds.length; i++) {
-    const fileId = fileIds[i];
-    const fileKeyColumns = keyColumns[fileId];
+  
+  // Create a results array to store merged rows
+  const result: any[] = [];
+  
+  // Create maps for each dataset keyed by the composite key
+  const dataMaps: Record<string, Map<string, any>> = {};
+  
+  // Create a map for each dataset
+  fileIds.forEach(fileId => {
     const data = datasets[fileId];
-
-    data.forEach((row) => {
-      // Create composite key from multiple key columns for this dataset
-      const keyValues = fileKeyColumns.map(col => String(row[col] || '').trim());
+    const keyColumnsForFile = keyColumns[fileId];
+    const dataMap = new Map<string, any>();
+    
+    data.forEach(row => {
+      // Create composite key from key columns
+      const keyValues = keyColumnsForFile.map(col => String(row[col] || '').trim());
       const compositeKey = keyValues.join('|');
       
-      if (compositeKey && result[compositeKey]) {
-        // Add columns from this dataset to existing rows
-        includeColumns[fileId].forEach((col) => {
-          result[compositeKey][`${fileId}:${col}`] = row[col];
-        });
+      if (compositeKey) {
+        dataMap.set(compositeKey, row);
       }
     });
-  }
-
-  // Convert result object back to array
-  return Object.values(result);
+    
+    dataMaps[fileId] = dataMap;
+  });
+  
+  // Use base data and iterate through each row
+  baseData.forEach(baseRow => {
+    // Create composite key for base row
+    const keyValues = baseKeyColumns.map(col => String(baseRow[col] || '').trim());
+    const compositeKey = keyValues.join('|');
+    
+    if (!compositeKey) return;
+    
+    // Start with selected columns from base dataset
+    const mergedRow: Record<string, any> = {};
+    
+    // Add selected columns from base dataset
+    includeColumns[baseFileId].forEach(col => {
+      mergedRow[`${baseFileId}:${col}`] = baseRow[col];
+    });
+    
+    // Check if this key exists in other datasets and add their columns
+    let foundInAllDatasets = true;
+    
+    for (let i = 1; i < fileIds.length; i++) {
+      const fileId = fileIds[i];
+      const dataMap = dataMaps[fileId];
+      const matchingRow = dataMap.get(compositeKey);
+      
+      if (matchingRow) {
+        // Add selected columns from this dataset
+        includeColumns[fileId].forEach(col => {
+          mergedRow[`${fileId}:${col}`] = matchingRow[col];
+        });
+      } else {
+        foundInAllDatasets = false;
+        // Add null values for missing datasets
+        includeColumns[fileId].forEach(col => {
+          mergedRow[`${fileId}:${col}`] = null;
+        });
+      }
+    }
+    
+    // Add to result if found in at least one other dataset
+    if (foundInAllDatasets) {
+      result.push(mergedRow);
+    }
+  });
+  
+  return result;
 };
 
 // Detect data types for columns
@@ -230,6 +260,24 @@ export const renameColumns = (
     Object.keys(row).forEach(key => {
       const newKey = columnMap[key] || key;
       newRow[newKey] = row[key];
+    });
+    return newRow;
+  });
+};
+
+// Function to trim values in specific columns
+export const trimColumnValues = (
+  data: any[],
+  columns: string[]
+): any[] => {
+  if (!data || !columns.length) return data;
+
+  return data.map(row => {
+    const newRow = { ...row };
+    columns.forEach(col => {
+      if (col in newRow && typeof newRow[col] === 'string') {
+        newRow[col] = newRow[col].trim();
+      }
     });
     return newRow;
   });

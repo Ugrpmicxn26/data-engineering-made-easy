@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from "react";
 import { 
   FileData, 
@@ -6,7 +5,8 @@ import {
   mergeDatasets, 
   filterRows, 
   excludeColumns, 
-  renameColumns, 
+  renameColumns,
+  trimColumnValues,
   ColumnInfo 
 } from "@/utils/fileUtils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -26,7 +26,8 @@ import {
   MinusCircle,
   CheckCircle,
   Tag,
-  Edit
+  Edit,
+  Scissors
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -46,7 +47,9 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
   const [dropRowsValues, setDropRowsValues] = useState<string>("");
   const [renameColumnsFile, setRenameColumnsFile] = useState<string | null>(null);
   const [columnRenames, setColumnRenames] = useState<Record<string, string>>({});
-  const [currentAction, setCurrentAction] = useState<"merge" | "dropColumns" | "dropRows" | "renameColumns">("merge");
+  const [trimColumnsFile, setTrimColumnsFile] = useState<string | null>(null);
+  const [columnsToTrim, setColumnsToTrim] = useState<string[]>([]);
+  const [currentAction, setCurrentAction] = useState<"merge" | "dropColumns" | "dropRows" | "renameColumns" | "trimColumns">("merge");
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Get only selected files
@@ -90,7 +93,11 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
       setRenameColumnsFile(null);
       setColumnRenames({});
     }
-  }, [selectedFiles, keyColumns, includeColumns, dropColumnsFile, dropRowsFile, renameColumnsFile]);
+    if (trimColumnsFile && !selectedFiles.some(f => f.id === trimColumnsFile)) {
+      setTrimColumnsFile(null);
+      setColumnsToTrim([]);
+    }
+  }, [selectedFiles]);
 
   const handleAddKeyColumn = (fileId: string) => {
     const file = selectedFiles.find(f => f.id === fileId);
@@ -137,6 +144,14 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
 
   const handleToggleExcludeColumn = (column: string) => {
     setColumnsToExclude(prev => 
+      prev.includes(column) 
+        ? prev.filter(col => col !== column) 
+        : [...prev, column]
+    );
+  };
+
+  const handleToggleTrimColumn = (column: string) => {
+    setColumnsToTrim(prev => 
       prev.includes(column) 
         ? prev.filter(col => col !== column) 
         : [...prev, column]
@@ -307,6 +322,47 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
     }
   };
 
+  const handleTrimColumns = () => {
+    if (!trimColumnsFile || columnsToTrim.length === 0) {
+      toast.error("Please select a file and columns to trim");
+      return;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      const fileToModify = files.find(file => file.id === trimColumnsFile);
+      if (!fileToModify || !fileToModify.data) {
+        toast.error("File data not found");
+        return;
+      }
+
+      // Trim the values in the selected columns
+      const trimmedData = trimColumnValues(fileToModify.data, columnsToTrim);
+
+      // Update the file in our file list
+      const updatedFiles = [...files];
+      const fileIndex = updatedFiles.findIndex(f => f.id === trimColumnsFile);
+      
+      if (fileIndex !== -1) {
+        updatedFiles[fileIndex] = {
+          ...fileToModify,
+          data: trimmedData
+        };
+        
+        // Update with trimmed data and updated files
+        onMergeComplete(trimmedData, updatedFiles);
+        toast.success(`Successfully trimmed values in ${columnsToTrim.length} columns`);
+      }
+    } catch (error) {
+      console.error("Error trimming columns:", error);
+      toast.error("Failed to trim column values");
+    } finally {
+      setIsProcessing(false);
+      setColumnsToTrim([]); // Reset for next operation
+    }
+  };
+
   const handleMerge = async () => {
     if (selectedFiles.length < 2) {
       toast.error("Please select at least two files to merge");
@@ -334,8 +390,20 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
         }
       });
 
+      console.log("Merging datasets with key columns:", keyColumns);
+      console.log("Include columns:", includeColumns);
+      console.log("Datasets:", datasets);
+
       // Merge the datasets using the updated mergeDatasets function
       const mergedData = mergeDatasets(datasets, keyColumns, includeColumns);
+      console.log("Merged data result:", mergedData);
+      
+      if (mergedData.length === 0) {
+        toast.warning("No matching records found between datasets");
+      } else {
+        toast.success(`Successfully merged ${mergedData.length} records`);
+      }
+      
       onMergeComplete(mergedData);
     } catch (error) {
       console.error("Error merging datasets:", error);
@@ -362,7 +430,7 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
       <div className="space-y-2">
         <h2 className="text-lg font-medium">Configure Data Transformation</h2>
         <p className="text-sm text-muted-foreground">
-          Select options to merge, drop columns, filter rows, or rename columns
+          Select options to merge, drop columns, filter rows, rename columns, or trim values
         </p>
       </div>
 
@@ -398,6 +466,14 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
         >
           <Tag className="mr-2 h-4 w-4" />
           Rename Columns
+        </Button>
+        <Button 
+          variant={currentAction === "trimColumns" ? "default" : "outline"} 
+          size="sm"
+          onClick={() => setCurrentAction("trimColumns")}
+        >
+          <Scissors className="mr-2 h-4 w-4" />
+          Trim Values
         </Button>
       </div>
 
@@ -769,6 +845,89 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
                 <>
                   <CheckCircle className="mr-2 h-4 w-4" />
                   Apply Column Renames
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {currentAction === "trimColumns" && (
+        <div className="space-y-4">
+          <div className="bg-muted/40 p-4 rounded-lg mb-4">
+            <h3 className="text-sm font-medium mb-2">Trim Values Configuration</h3>
+            <p className="text-xs text-muted-foreground">
+              Select a file and choose which columns to trim whitespace from (leading and trailing spaces).
+            </p>
+          </div>
+          
+          <div className="p-4 bg-card rounded-lg border">
+            <div className="mb-4">
+              <label className="text-sm font-medium">Select File</label>
+              <Select
+                value={trimColumnsFile || ""}
+                onValueChange={(value) => {
+                  setTrimColumnsFile(value);
+                  setColumnsToTrim([]);
+                }}
+              >
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder="Choose a file" />
+                </SelectTrigger>
+                <SelectContent>
+                  {selectedFiles.map(file => (
+                    <SelectItem key={file.id} value={file.id}>
+                      {file.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {trimColumnsFile && (
+              <div className="mt-4">
+                <h4 className="text-sm font-medium mb-2">
+                  <Scissors className="h-3.5 w-3.5 inline mr-1.5" />
+                  Select Columns to Trim
+                </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-2">
+                  {selectedFiles
+                    .find(f => f.id === trimColumnsFile)
+                    ?.columns.map(column => (
+                      <div key={column} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`trim-${trimColumnsFile}-${column}`}
+                          checked={columnsToTrim.includes(column)}
+                          onCheckedChange={() => handleToggleTrimColumn(column)}
+                        />
+                        <label
+                          htmlFor={`trim-${trimColumnsFile}-${column}`}
+                          className="text-sm truncate cursor-pointer"
+                        >
+                          {column}
+                        </label>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-center mt-6">
+            <Button
+              onClick={handleTrimColumns}
+              disabled={!trimColumnsFile || columnsToTrim.length === 0 || isProcessing}
+              className="hover-scale"
+            >
+              {isProcessing ? (
+                <>
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Scissors className="mr-2 h-4 w-4" />
+                  Trim Column Values
                 </>
               )}
             </Button>
