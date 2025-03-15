@@ -383,7 +383,7 @@ export const pivotData = (
   const { rowFields, columnField, valueField, aggregation } = config;
   
   // Create a map to store the aggregated values
-  const pivotMap = new Map<string, Record<string, number>>();
+  const pivotMap = new Map<string, Record<string, number | number[]>>();
   
   // Collect all unique column values
   const columnValues = new Set<string>();
@@ -416,27 +416,28 @@ export const pivotData = (
     } else {
       switch (aggregation) {
         case "sum":
-          pivotRow[colValue] += val;
+          pivotRow[colValue] = (pivotRow[colValue] as number) + val;
           break;
         case "count":
-          pivotRow[colValue] += 1;
+          pivotRow[colValue] = (pivotRow[colValue] as number) + 1;
           break;
         case "average":
           // For average, we'll store [sum, count] and calculate later
           if (!Array.isArray(pivotRow[colValue])) {
-            pivotRow[colValue] = [pivotRow[colValue], 1];
+            pivotRow[colValue] = [pivotRow[colValue] as number, 1];
+          } else {
+            (pivotRow[colValue] as number[])[0] += val;
+            (pivotRow[colValue] as number[])[1] += 1;
           }
-          pivotRow[colValue][0] += val;
-          pivotRow[colValue][1] += 1;
           break;
         case "min":
-          pivotRow[colValue] = Math.min(pivotRow[colValue], val);
+          pivotRow[colValue] = Math.min(pivotRow[colValue] as number, val);
           break;
         case "max":
-          pivotRow[colValue] = Math.max(pivotRow[colValue], val);
+          pivotRow[colValue] = Math.max(pivotRow[colValue] as number, val);
           break;
         default:
-          pivotRow[colValue] += val;
+          pivotRow[colValue] = (pivotRow[colValue] as number) + val;
       }
     }
   });
@@ -449,7 +450,7 @@ export const pivotData = (
     result.forEach(row => {
       columnValues.forEach(colValue => {
         if (Array.isArray(row[colValue])) {
-          const [sum, count] = row[colValue];
+          const [sum, count] = row[colValue] as number[];
           row[colValue] = count > 0 ? sum / count : 0;
         }
       });

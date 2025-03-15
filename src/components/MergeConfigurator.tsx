@@ -486,6 +486,42 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
     }
   };
 
+  const handlePivotRowFieldChange = (index: number, value: string) => {
+    setPivotConfig(prev => {
+      const newRowFields = [...prev.rowFields];
+      newRowFields[index] = value;
+      return { ...prev, rowFields: newRowFields };
+    });
+  };
+
+  const handleRemovePivotRowField = (index: number) => {
+    setPivotConfig(prev => {
+      const newRowFields = [...prev.rowFields];
+      newRowFields.splice(index, 1);
+      return { ...prev, rowFields: newRowFields };
+    });
+  };
+
+  const handleAddPivotRowField = () => {
+    if (!pivotFile) return;
+    
+    const file = selectedFiles.find(f => f.id === pivotFile);
+    if (!file) return;
+    
+    const availableColumns = file.columns.filter(col => 
+      !pivotConfig.rowFields.includes(col) && 
+      col !== pivotConfig.columnField && 
+      col !== pivotConfig.valueField
+    );
+    
+    if (availableColumns.length > 0) {
+      setPivotConfig(prev => ({
+        ...prev,
+        rowFields: [...prev.rowFields, availableColumns[0]]
+      }));
+    }
+  };
+
   if (selectedFiles.length === 0) {
     return (
       <div className="text-center p-8 bg-muted/30 rounded-lg animate-fade-in">
