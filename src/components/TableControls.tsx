@@ -30,12 +30,14 @@ import {
   X,
   Plus
 } from "lucide-react";
+import { ColumnInfo } from "@/utils/fileUtils";
 
 interface TableControlsProps {
   columns: string[];
   onToggleColumns: (columns: string[]) => void;
   onFilterRows: (filters: RowFilter[]) => void;
   onPivot: (config: PivotConfig | null) => void;
+  columnInfo?: Record<string, ColumnInfo>;
 }
 
 export interface RowFilter {
