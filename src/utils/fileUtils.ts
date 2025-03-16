@@ -37,7 +37,7 @@ export interface ColumnInfo {
 export interface PivotConfig {
   rowFields: string[];
   columnField: string;
-  valueField: string;
+  valueFields: string[];
   aggregation: "sum" | "count" | "average" | "min" | "max";
 }
 
@@ -374,88 +374,93 @@ export const downloadCSV = (data: any[], filename: string): void => {
 };
 
 // Function to pivot data
-export const pivotData = (
-  data: any[],
-  config: PivotConfig
-): any[] => {
+export function pivotData(data: any[], config: PivotConfig): any[] {
   if (!data || data.length === 0) return [];
+
+  const { rowFields, columnField, valueFields, aggregation } = config;
   
-  const { rowFields, columnField, valueField, aggregation } = config;
+  if (!rowFields.length || !columnField || !valueFields.length) {
+    return [];
+  }
+
+  // Get unique column values
+  const columnValues = [...new Set(data.map(row => row[columnField]))];
   
-  // Create a map to store the aggregated values
-  const pivotMap = new Map<string, Record<string, number | number[]>>();
+  // Group data by row fields
+  const groupedData: Record<string, any[]> = {};
   
-  // Collect all unique column values
-  const columnValues = new Set<string>();
-  
-  // Process each row in the original data
   data.forEach(row => {
-    // Create a composite key from the row fields
-    const rowKey = rowFields.map(field => String(row[field] || '')).join('|');
+    const rowKey = rowFields.map(field => String(row[field])).join('|');
     
-    // Get the column value and value to aggregate
-    const colValue = String(row[columnField] || '');
-    const val = Number(row[valueField]) || 0;
-    
-    // Add to column values set
-    columnValues.add(colValue);
-    
-    // Get or create the row in our pivot map
-    let pivotRow = pivotMap.get(rowKey);
-    if (!pivotRow) {
-      pivotRow = {};
-      rowFields.forEach(field => {
-        pivotRow![field] = row[field];
-      });
-      pivotMap.set(rowKey, pivotRow);
+    if (!groupedData[rowKey]) {
+      groupedData[rowKey] = [];
     }
     
-    // Apply the aggregation
-    if (!(colValue in pivotRow)) {
-      pivotRow[colValue] = val;
-    } else {
-      switch (aggregation) {
-        case "sum":
-          pivotRow[colValue] = (pivotRow[colValue] as number) + val;
-          break;
-        case "count":
-          pivotRow[colValue] = (pivotRow[colValue] as number) + 1;
-          break;
-        case "average":
-          // For average, we'll store [sum, count] and calculate later
-          if (!Array.isArray(pivotRow[colValue])) {
-            pivotRow[colValue] = [pivotRow[colValue] as number, 1];
-          } else {
-            (pivotRow[colValue] as number[])[0] += val;
-            (pivotRow[colValue] as number[])[1] += 1;
-          }
-          break;
-        case "min":
-          pivotRow[colValue] = Math.min(pivotRow[colValue] as number, val);
-          break;
-        case "max":
-          pivotRow[colValue] = Math.max(pivotRow[colValue] as number, val);
-          break;
-        default:
-          pivotRow[colValue] = (pivotRow[colValue] as number) + val;
-      }
-    }
+    groupedData[rowKey].push(row);
   });
   
-  // Convert the map to an array of objects
-  const result = Array.from(pivotMap.values());
+  // Create the pivoted data
+  const pivotedData: any[] = [];
   
-  // For average aggregation, calculate the final averages
-  if (aggregation === "average") {
-    result.forEach(row => {
-      columnValues.forEach(colValue => {
-        if (Array.isArray(row[colValue])) {
-          const [sum, count] = row[colValue] as number[];
-          row[colValue] = count > 0 ? sum / count : 0;
+  Object.entries(groupedData).forEach(([rowKey, rows]) => {
+    const newRow: Record<string, any> = {};
+    
+    // Add row fields to the new row
+    const rowKeyParts = rowKey.split('|');
+    rowFields.forEach((field, index) => {
+      newRow[field] = rowKeyParts[index];
+    });
+    
+    // For each unique column value and each value field, calculate the aggregated value
+    columnValues.forEach(colValue => {
+      if (colValue === null || colValue === undefined) return;
+      
+      const matchingRows = rows.filter(row => row[columnField] === colValue);
+      
+      valueFields.forEach(valueField => {
+        const pivotColName = `${colValue}_${valueField}`;
+        
+        if (matchingRows.length === 0) {
+          newRow[pivotColName] = null;
+          return;
+        }
+        
+        const values = matchingRows
+          .map(row => {
+            const val = row[valueField];
+            return isNaN(Number(val)) ? null : Number(val);
+          })
+          .filter(val => val !== null);
+        
+        if (values.length === 0) {
+          newRow[pivotColName] = null;
+          return;
+        }
+        
+        switch (aggregation) {
+          case 'sum':
+            newRow[pivotColName] = values.reduce((sum, val) => sum + val, 0);
+            break;
+          case 'count':
+            newRow[pivotColName] = values.length;
+            break;
+          case 'average':
+            newRow[pivotColName] = values.reduce((sum, val) => sum + val, 0) / values.length;
+            break;
+          case 'min':
+            newRow[pivotColName] = Math.min(...values);
+            break;
+          case 'max':
+            newRow[pivotColName] = Math.max(...values);
+            break;
+          default:
+            newRow[pivotColName] = null;
         }
       });
     });
-  }
+    
+    pivotedData.push(newRow);
+  });
   
-  return result;
-};
+  return pivotedData;
+}

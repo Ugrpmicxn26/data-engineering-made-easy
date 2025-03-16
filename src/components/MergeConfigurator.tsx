@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { 
   Layers, 
   MergeIcon, 
@@ -61,7 +62,7 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
   const [pivotConfig, setPivotConfig] = useState<PivotConfig>({
     rowFields: [],
     columnField: "",
-    valueField: "",
+    valueFields: [],
     aggregation: "sum"
   });
   const [saveMergedFile, setSaveMergedFile] = useState(true);
@@ -118,7 +119,7 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
       setPivotConfig({
         rowFields: [],
         columnField: "",
-        valueField: "",
+        valueFields: [],
         aggregation: "sum"
       });
     }
@@ -372,7 +373,7 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
   };
 
   const handlePivotData = () => {
-    if (!pivotFile || !pivotConfig.columnField || !pivotConfig.valueField || pivotConfig.rowFields.length === 0) {
+    if (!pivotFile || !pivotConfig.columnField || pivotConfig.valueFields.length === 0 || pivotConfig.rowFields.length === 0) {
       toast.error("Please complete pivot configuration");
       return;
     }
@@ -511,7 +512,7 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
     const availableColumns = file.columns.filter(col => 
       !pivotConfig.rowFields.includes(col) && 
       col !== pivotConfig.columnField && 
-      col !== pivotConfig.valueField
+      !pivotConfig.valueFields.includes(col)
     );
     
     if (availableColumns.length > 0) {
@@ -520,6 +521,13 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
         rowFields: [...prev.rowFields, availableColumns[0]]
       }));
     }
+  };
+
+  const handleValueFieldsChange = (values: string[]) => {
+    setPivotConfig(prev => ({
+      ...prev,
+      valueFields: values
+    }));
   };
 
   if (selectedFiles.length === 0) {
@@ -823,7 +831,7 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
           <div className="bg-muted/40 p-4 rounded-lg mb-4">
             <h3 className="text-sm font-medium mb-2">Pivot Table Configuration</h3>
             <p className="text-xs text-muted-foreground">
-              Create a pivot table by selecting row fields, column field, value field, and aggregation type.
+              Create a pivot table by selecting row fields (index), column field, value fields, and aggregation type.
             </p>
           </div>
           
@@ -837,7 +845,7 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
                   setPivotConfig({
                     rowFields: [],
                     columnField: "",
-                    valueField: "",
+                    valueFields: [],
                     aggregation: "sum"
                   });
                 }}
@@ -858,7 +866,7 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
             {pivotFile && (
               <div className="space-y-4">
                 <div>
-                  <h4 className="text-sm font-medium mb-2">Row Fields (Groups)</h4>
+                  <h4 className="text-sm font-medium mb-2">Row Fields (Index)</h4>
                   {pivotConfig.rowFields.map((field, index) => (
                     <div key={index} className="flex items-center gap-2 mb-2">
                       <Select
@@ -872,9 +880,10 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
                           {selectedFiles
                             .find(f => f.id === pivotFile)
                             ?.columns.filter(col => 
+                              (col === field || 
+                              (!pivotConfig.rowFields.includes(col) || pivotConfig.rowFields.indexOf(col) === index) && 
                               col !== pivotConfig.columnField && 
-                              col !== pivotConfig.valueField &&
-                              !pivotConfig.rowFields.includes(col)
+                              !pivotConfig.valueFields.includes(col))
                             )
                             .map(col => (
                               <SelectItem key={col} value={col}>
@@ -920,7 +929,7 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
                       {selectedFiles
                         .find(f => f.id === pivotFile)
                         ?.columns.filter(col => 
-                          !pivotConfig.rowFields.includes(col) && col !== pivotConfig.valueField
+                          !pivotConfig.rowFields.includes(col) && !pivotConfig.valueFields.includes(col)
                         )
                         .map(col => (
                           <SelectItem key={col} value={col}>
@@ -932,27 +941,25 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
                 </div>
                 
                 <div>
-                  <h4 className="text-sm font-medium mb-2">Value Field</h4>
-                  <Select
-                    value={pivotConfig.valueField}
-                    onValueChange={(value) => setPivotConfig(prev => ({ ...prev, valueField: value }))}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select value field" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {selectedFiles
+                  <h4 className="text-sm font-medium mb-2">Value Fields</h4>
+                  {selectedFiles.find(f => f.id === pivotFile)?.columns && (
+                    <MultiSelect
+                      options={selectedFiles
                         .find(f => f.id === pivotFile)
                         ?.columns.filter(col => 
                           !pivotConfig.rowFields.includes(col) && col !== pivotConfig.columnField
                         )
-                        .map(col => (
-                          <SelectItem key={col} value={col}>
-                            {col}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
+                        .map(col => ({ label: col, value: col })) || []
+                      }
+                      selected={pivotConfig.valueFields}
+                      onChange={handleValueFieldsChange}
+                      placeholder="Select value fields"
+                      className="w-full"
+                    />
+                  )}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Select multiple fields to calculate values for each cell in the pivot table
+                  </p>
                 </div>
                 
                 <div>
@@ -975,6 +982,27 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
                     </SelectContent>
                   </Select>
                 </div>
+
+                {pivotConfig.rowFields.length > 0 && (
+                  <div className="bg-muted/30 p-3 rounded-md mt-4">
+                    <h4 className="text-sm font-medium mb-2">Pivot Table Preview</h4>
+                    <div className="text-xs">
+                      <div className="grid grid-cols-2 gap-1">
+                        <div className="font-medium">Index (Row Fields):</div>
+                        <div>{pivotConfig.rowFields.join(", ")}</div>
+                        
+                        <div className="font-medium">Column Field:</div>
+                        <div>{pivotConfig.columnField || "Not selected"}</div>
+                        
+                        <div className="font-medium">Value Fields:</div>
+                        <div>{pivotConfig.valueFields.length > 0 ? pivotConfig.valueFields.join(", ") : "Not selected"}</div>
+                        
+                        <div className="font-medium">Aggregation:</div>
+                        <div className="capitalize">{pivotConfig.aggregation}</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -985,7 +1013,7 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
               disabled={
                 !pivotFile || 
                 !pivotConfig.columnField || 
-                !pivotConfig.valueField || 
+                pivotConfig.valueFields.length === 0 || 
                 pivotConfig.rowFields.length === 0 ||
                 isProcessing
               }
