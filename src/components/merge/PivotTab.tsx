@@ -50,8 +50,7 @@ const PivotTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing
     
     const availableColumns = file.columns.filter(col => 
       !state.pivotConfig.rowFields.includes(col) && 
-      col !== state.pivotConfig.columnField && 
-      !state.pivotConfig.valueFields.includes(col)
+      col !== state.pivotConfig.columnField
     );
     
     if (availableColumns.length > 0) {
@@ -66,12 +65,11 @@ const PivotTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing
   };
 
   const handleValueFieldsChange = (values: string[]) => {
-    // Safely update valueFields to avoid undefined errors
     setState(prev => ({
       ...prev,
       pivotConfig: {
         ...prev.pivotConfig,
-        valueFields: values || [] // Ensure we always have an array
+        valueFields: values || []
       }
     }));
   };
@@ -178,8 +176,7 @@ const PivotTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing
                         ?.columns.filter(col => 
                           (col === field || 
                           (!state.pivotConfig.rowFields.includes(col) || state.pivotConfig.rowFields.indexOf(col) === index) && 
-                          col !== state.pivotConfig.columnField && 
-                          !state.pivotConfig.valueFields.includes(col))
+                          col !== state.pivotConfig.columnField)
                         )
                         .map(col => (
                           <SelectItem key={col} value={col}>
@@ -228,7 +225,7 @@ const PivotTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing
                   {selectedFiles
                     .find(f => f.id === state.pivotFile)
                     ?.columns.filter(col => 
-                      !state.pivotConfig.rowFields.includes(col) && !state.pivotConfig.valueFields.includes(col)
+                      !state.pivotConfig.rowFields.includes(col)
                     )
                     .map(col => (
                       <SelectItem key={col} value={col}>
@@ -246,11 +243,12 @@ const PivotTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing
                   options={selectedFiles
                     .find(f => f.id === state.pivotFile)
                     ?.columns.filter(col => 
-                      !state.pivotConfig.rowFields.includes(col) && col !== state.pivotConfig.columnField
+                      !state.pivotConfig.rowFields.includes(col) && 
+                      col !== state.pivotConfig.columnField
                     )
                     .map(col => ({ label: col, value: col })) || []
                   }
-                  selected={state.pivotConfig.valueFields || []}
+                  selected={state.pivotConfig.valueFields}
                   onChange={handleValueFieldsChange}
                   placeholder="Select value fields"
                   className="w-full"
