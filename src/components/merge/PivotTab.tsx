@@ -1,101 +1,96 @@
 
-import React from "react";
-import { Grid3X3, PlusCircle, MinusCircle } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Grid3X3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MultiSelect } from "@/components/ui/multi-select";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
 import ConfigHeader from "./ConfigHeader";
-import { ActionTabProps, PivotTabState } from "./types";
-import { pivotData, PivotConfig } from "@/utils/fileUtils";
+import { ActionTabProps } from "./types";
+import { pivotData } from "@/utils/fileUtils";
 import { toast } from "sonner";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 const PivotTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing, onComplete }) => {
-  const [state, setState] = React.useState<PivotTabState>({
-    pivotFile: null,
-    pivotConfig: {
-      rowFields: [],
-      columnField: "",
-      valueFields: [],
-      aggregation: "sum"
+  // State
+  const [pivotFile, setPivotFile] = useState<string | null>(null);
+  const [rowFields, setRowFields] = useState<string[]>([]);
+  const [columnField, setColumnField] = useState<string>("");
+  const [valueFields, setValueFields] = useState<string[]>([]);
+  const [aggregation, setAggregation] = useState<"first" | "sum" | "count" | "average" | "min" | "max">("first");
+  const [availableColumns, setAvailableColumns] = useState<string[]>([]);
+  
+  // Update available columns when the selected file changes
+  useEffect(() => {
+    if (!pivotFile) {
+      setAvailableColumns([]);
+      return;
     }
-  });
+    
+    const file = selectedFiles.find(f => f.id === pivotFile);
+    if (file) {
+      setAvailableColumns(file.columns || []);
+    }
+  }, [pivotFile, selectedFiles]);
 
-  const handlePivotRowFieldChange = (index: number, value: string) => {
-    setState(prev => {
-      const newRowFields = [...prev.pivotConfig.rowFields];
-      newRowFields[index] = value;
-      return { 
-        ...prev, 
-        pivotConfig: { ...prev.pivotConfig, rowFields: newRowFields }
-      };
-    });
+  // Reset fields when file changes
+  useEffect(() => {
+    setRowFields([]);
+    setColumnField("");
+    setValueFields([]);
+  }, [pivotFile]);
+
+  // Handle adding a row field
+  const handleAddRowField = (field: string) => {
+    if (rowFields.includes(field)) return;
+    setRowFields(prev => [...prev, field]);
   };
 
-  const handleRemovePivotRowField = (index: number) => {
-    setState(prev => {
-      const newRowFields = [...prev.pivotConfig.rowFields];
-      newRowFields.splice(index, 1);
-      return { 
-        ...prev, 
-        pivotConfig: { ...prev.pivotConfig, rowFields: newRowFields }
-      };
-    });
+  // Handle removing a row field
+  const handleRemoveRowField = (field: string) => {
+    setRowFields(prev => prev.filter(f => f !== field));
   };
 
-  const handleAddPivotRowField = () => {
-    if (!state.pivotFile) return;
-    
-    const file = selectedFiles.find(f => f.id === state.pivotFile);
-    if (!file) return;
-    
-    const availableColumns = file.columns.filter(col => 
-      !state.pivotConfig.rowFields.includes(col) && 
-      col !== state.pivotConfig.columnField
+  // Handle toggling a value field
+  const handleToggleValueField = (field: string) => {
+    setValueFields(prev => 
+      prev.includes(field)
+        ? prev.filter(f => f !== field)
+        : [...prev, field]
     );
-    
-    if (availableColumns.length > 0) {
-      setState(prev => ({
-        ...prev,
-        pivotConfig: {
-          ...prev.pivotConfig,
-          rowFields: [...prev.pivotConfig.rowFields, availableColumns[0]]
-        }
-      }));
-    }
   };
 
-  const handleValueFieldsChange = (values: string[]) => {
-    setState(prev => ({
-      ...prev,
-      pivotConfig: {
-        ...prev.pivotConfig,
-        valueFields: values || []
-      }
-    }));
-  };
-
-  const handlePivotData = () => {
-    if (
-      !state.pivotFile || 
-      !state.pivotConfig.columnField || 
-      state.pivotConfig.valueFields.length === 0 || 
-      state.pivotConfig.rowFields.length === 0
-    ) {
-      toast.error("Please complete pivot configuration");
+  // Handle pivot operation
+  const handlePivot = () => {
+    if (!pivotFile || !columnField || valueFields.length === 0 || rowFields.length === 0) {
+      toast.error("Please complete all required pivot configuration fields");
       return;
     }
 
     try {
-      const fileToModify = files.find(file => file.id === state.pivotFile);
-      if (!fileToModify || !fileToModify.data) {
-        toast.error("File data not found");
+      const sourceFile = files.find(file => file.id === pivotFile);
+      if (!sourceFile || !sourceFile.data) {
+        toast.error("Source file data not found");
         return;
       }
 
-      const pivotedData = pivotData(fileToModify.data, state.pivotConfig);
+      const pivotConfig = {
+        rowFields,
+        columnField,
+        valueFields,
+        aggregation
+      };
+
+      const pivotedData = pivotData(sourceFile.data, pivotConfig);
       
       if (pivotedData.length === 0) {
-        toast.warning("No data after pivot operation");
+        toast.warning("Pivot operation resulted in empty data");
         return;
       }
 
@@ -103,7 +98,7 @@ const PivotTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing
 
       const pivotedFile = {
         id: `pivot-${Date.now()}`,
-        name: `${fileToModify.name}-pivoted`,
+        name: `${sourceFile.name}-pivoted`,
         type: "text/csv",
         size: 0,
         content: "",
@@ -113,39 +108,44 @@ const PivotTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing
       };
 
       onComplete(pivotedData, [...files, pivotedFile]);
-      toast.success(`Successfully pivoted data with ${pivotedData.length} rows`);
+      toast.success(`Successfully created pivot table with ${pivotedData.length} rows`);
     } catch (error) {
-      console.error("Error pivoting data:", error);
-      toast.error("Failed to pivot data");
+      console.error("Error creating pivot table:", error);
+      toast.error("Failed to create pivot table");
     }
   };
 
+  // Filter functions for columns based on their current usage
+  const getAvailableRowFields = () => {
+    return availableColumns.filter(col => 
+      col !== columnField && 
+      !rowFields.includes(col)
+    );
+  };
+
+  const getAvailableValueFields = () => {
+    return availableColumns.filter(col => 
+      !rowFields.includes(col)
+    );
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <ConfigHeader 
-        title="Pivot Table Configuration" 
-        description="Create a pivot table by selecting row fields (index), column field, value fields, and aggregation type."
+        title="Pivot Table" 
+        description="Create a pivot table by selecting index fields (rows), column field, value fields, and aggregation method."
       />
       
-      <div className="p-4 bg-card rounded-lg border">
-        <div className="mb-4">
-          <label className="text-sm font-medium">Select File</label>
+      <div className="p-6 bg-card rounded-lg border">
+        {/* File Selection */}
+        <div className="mb-6">
+          <h3 className="text-base font-medium mb-2">Step 1: Select File</h3>
           <Select
-            value={state.pivotFile || ""}
-            onValueChange={(value) => {
-              setState({
-                pivotFile: value,
-                pivotConfig: {
-                  rowFields: [],
-                  columnField: "",
-                  valueFields: [],
-                  aggregation: "sum"
-                }
-              });
-            }}
+            value={pivotFile || ""}
+            onValueChange={setPivotFile}
           >
-            <SelectTrigger className="w-full mt-1">
-              <SelectValue placeholder="Choose a file" />
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Choose a file to pivot" />
             </SelectTrigger>
             <SelectContent>
               {selectedFiles.map(file => (
@@ -157,76 +157,79 @@ const PivotTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing
           </Select>
         </div>
         
-        {state.pivotFile && (
-          <div className="space-y-4">
-            <div>
-              <h4 className="text-sm font-medium mb-2">Row Fields (Index)</h4>
-              {state.pivotConfig.rowFields.map((field, index) => (
-                <div key={index} className="flex items-center gap-2 mb-2">
-                  <Select
-                    value={field}
-                    onValueChange={(value) => handlePivotRowFieldChange(index, value)}
-                  >
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Select a field" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {selectedFiles
-                        .find(f => f.id === state.pivotFile)
-                        ?.columns.filter(col => 
-                          (col === field || 
-                          (!state.pivotConfig.rowFields.includes(col) || state.pivotConfig.rowFields.indexOf(col) === index) && 
-                          col !== state.pivotConfig.columnField)
-                        )
-                        .map(col => (
+        {pivotFile && (
+          <>
+            {/* Row Fields (Index) */}
+            <div className="mb-6">
+              <h3 className="text-base font-medium mb-2">Step 2: Select Row Fields (Index)</h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Select one or more fields to use as row identifiers
+              </p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                {rowFields.map(field => (
+                  <div key={field} className="flex items-center justify-between bg-muted/50 px-3 py-2 rounded-md">
+                    <span className="text-sm font-medium">{field}</span>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => handleRemoveRowField(field)}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              
+              {getAvailableRowFields().length > 0 && (
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <Select onValueChange={handleAddRowField}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Add row field" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getAvailableRowFields().map(col => (
                           <SelectItem key={col} value={col}>
                             {col}
                           </SelectItem>
                         ))}
-                    </SelectContent>
-                  </Select>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => handleRemovePivotRowField(index)}
+                    variant="outline" 
+                    onClick={() => {
+                      const availableFields = getAvailableRowFields();
+                      if (availableFields.length > 0) {
+                        handleAddRowField(availableFields[0]);
+                      }
+                    }}
+                    disabled={getAvailableRowFields().length === 0}
                   >
-                    <MinusCircle className="h-4 w-4" />
+                    Add Field
                   </Button>
                 </div>
-              ))}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleAddPivotRowField}
-                disabled={
-                  !state.pivotFile || 
-                  state.pivotConfig.rowFields.length >= 
-                    (selectedFiles.find(f => f.id === state.pivotFile)?.columns.length || 0) - 2
-                }
-              >
-                <PlusCircle className="mr-2 h-3.5 w-3.5" />
-                Add Row Field
-              </Button>
+              )}
             </div>
             
-            <div>
-              <h4 className="text-sm font-medium mb-2">Column Field</h4>
+            {/* Column Field */}
+            <div className="mb-6">
+              <h3 className="text-base font-medium mb-2">Step 3: Select Column Field</h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Select the field that will be used to create columns in the pivot table
+              </p>
+              
               <Select
-                value={state.pivotConfig.columnField}
-                onValueChange={(value) => setState(prev => ({ 
-                  ...prev, 
-                  pivotConfig: { ...prev.pivotConfig, columnField: value }
-                }))}
+                value={columnField}
+                onValueChange={setColumnField}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select column field" />
                 </SelectTrigger>
                 <SelectContent>
-                  {selectedFiles
-                    .find(f => f.id === state.pivotFile)
-                    ?.columns.filter(col => 
-                      !state.pivotConfig.rowFields.includes(col)
-                    )
+                  {availableColumns
+                    .filter(col => !rowFields.includes(col))
                     .map(col => (
                       <SelectItem key={col} value={col}>
                         {col}
@@ -236,42 +239,56 @@ const PivotTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing
               </Select>
             </div>
             
-            <div>
-              <h4 className="text-sm font-medium mb-2">Value Fields</h4>
-              {selectedFiles.find(f => f.id === state.pivotFile)?.columns && (
-                <MultiSelect
-                  options={selectedFiles
-                    .find(f => f.id === state.pivotFile)
-                    ?.columns.filter(col => 
-                      !state.pivotConfig.rowFields.includes(col) && 
-                      col !== state.pivotConfig.columnField
-                    )
-                    .map(col => ({ label: col, value: col })) || []
-                  }
-                  selected={state.pivotConfig.valueFields}
-                  onChange={handleValueFieldsChange}
-                  placeholder="Select value fields"
-                  className="w-full"
-                />
-              )}
-              <p className="text-xs text-muted-foreground mt-1">
-                Select multiple fields to calculate values for each cell in the pivot table
+            {/* Value Fields */}
+            <div className="mb-6">
+              <h3 className="text-base font-medium mb-2">Step 4: Select Value Fields</h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Select fields to calculate values for each cell in the pivot table
               </p>
+              
+              <div className="space-y-3 max-h-48 overflow-y-auto p-2 border rounded-md">
+                {getAvailableValueFields().map(field => (
+                  <div key={field} className="flex items-center space-x-2">
+                    <Checkbox 
+                      id={`value-${field}`} 
+                      checked={valueFields.includes(field)}
+                      onCheckedChange={() => handleToggleValueField(field)}
+                    />
+                    <Label 
+                      htmlFor={`value-${field}`}
+                      className="cursor-pointer"
+                    >
+                      {field}
+                    </Label>
+                  </div>
+                ))}
+                {getAvailableValueFields().length === 0 && (
+                  <p className="text-sm text-muted-foreground p-2">
+                    No available fields
+                  </p>
+                )}
+              </div>
+              
+              {valueFields.length > 0 && (
+                <div className="mt-2 text-sm">
+                  Selected: {valueFields.join(", ")}
+                </div>
+              )}
             </div>
             
-            <div>
-              <h4 className="text-sm font-medium mb-2">Aggregation Type</h4>
+            {/* Aggregation Method */}
+            <div className="mb-6">
+              <h3 className="text-base font-medium mb-2">Step 5: Select Aggregation Method</h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Choose how values should be aggregated when multiple values exist for the same cell
+              </p>
+              
               <Select
-                value={state.pivotConfig.aggregation}
-                onValueChange={(value: "sum" | "count" | "average" | "min" | "max" | "first") => 
-                  setState(prev => ({ 
-                    ...prev, 
-                    pivotConfig: { ...prev.pivotConfig, aggregation: value }
-                  }))
-                }
+                value={aggregation}
+                onValueChange={(value: "first" | "sum" | "count" | "average" | "min" | "max") => setAggregation(value)}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select aggregation type" />
+                  <SelectValue placeholder="Select aggregation method" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="first">First Value</SelectItem>
@@ -283,42 +300,40 @@ const PivotTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing
                 </SelectContent>
               </Select>
             </div>
-
-            {state.pivotConfig.rowFields.length > 0 && (
-              <div className="bg-muted/30 p-3 rounded-md mt-4">
-                <h4 className="text-sm font-medium mb-2">Pivot Table Preview</h4>
-                <div className="text-xs">
-                  <div className="grid grid-cols-2 gap-1">
-                    <div className="font-medium">Index (Row Fields):</div>
-                    <div>{state.pivotConfig.rowFields.join(", ")}</div>
-                    
-                    <div className="font-medium">Column Field:</div>
-                    <div>{state.pivotConfig.columnField || "Not selected"}</div>
-                    
-                    <div className="font-medium">Value Fields:</div>
-                    <div>{state.pivotConfig.valueFields.length > 0 ? state.pivotConfig.valueFields.join(", ") : "Not selected"}</div>
-                    
-                    <div className="font-medium">Aggregation:</div>
-                    <div className="capitalize">{state.pivotConfig.aggregation}</div>
-                  </div>
-                </div>
+            
+            {/* Pivot Table Summary */}
+            <div className="bg-muted/30 p-4 rounded-md">
+              <h3 className="text-base font-medium mb-2">Pivot Table Configuration</h3>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="font-medium">Row Fields:</div>
+                <div>{rowFields.length > 0 ? rowFields.join(", ") : "None selected"}</div>
+                
+                <div className="font-medium">Column Field:</div>
+                <div>{columnField || "None selected"}</div>
+                
+                <div className="font-medium">Value Fields:</div>
+                <div>{valueFields.length > 0 ? valueFields.join(", ") : "None selected"}</div>
+                
+                <div className="font-medium">Aggregation:</div>
+                <div className="capitalize">{aggregation}</div>
               </div>
-            )}
-          </div>
+            </div>
+          </>
         )}
       </div>
-
-      <div className="flex justify-center mt-6">
+      
+      {/* Create Button */}
+      <div className="flex justify-center">
         <Button
-          onClick={handlePivotData}
+          onClick={handlePivot}
           disabled={
-            !state.pivotFile || 
-            !state.pivotConfig.columnField || 
-            state.pivotConfig.valueFields.length === 0 || 
-            state.pivotConfig.rowFields.length === 0 ||
+            !pivotFile || 
+            rowFields.length === 0 || 
+            !columnField || 
+            valueFields.length === 0 ||
             isProcessing
           }
-          className="hover-scale"
+          className="w-full sm:w-auto"
         >
           {isProcessing ? (
             <>

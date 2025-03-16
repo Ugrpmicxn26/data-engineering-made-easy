@@ -9,7 +9,6 @@ import {
   Scissors,
   Grid3X3
 } from "lucide-react";
-import { ActionTabProps } from "./types";
 
 interface ActionTabsProps {
   currentAction: string;
