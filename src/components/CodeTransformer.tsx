@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { FileData, detectColumnTypes } from "@/utils/fileUtils";
 import DataTable from "./DataTable";
 import { toast } from "sonner";
-import { Code2, Play, Save } from "lucide-react";
+import { Code2, Play, Save, Eye } from "lucide-react";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 
 interface CodeTransformerProps {
@@ -33,15 +33,27 @@ const CodeTransformer: React.FC<CodeTransformerProps> = ({ files, onTransformCom
 // - renameColumn(data, oldName, newName): Rename a column
 // - dropColumn(data, columnName): Remove a column
 // - aggregate(data, groupBy, aggregations): Group and aggregate data
+// - head(data, n): Show first n rows (e.g., head(data, 5))
+// - tail(data, n): Show last n rows (e.g., tail(data, 5))
+// - filterByList(data, column, values, exclude): Filter by a list of values
+// - unique(data, column): Get unique values from a column
+// - describe(data): Get summary statistics for numeric columns
 
 // Example transformation:
 let result = data;
 
-// Filter rows where 'age' > 25
-result = result.filter(row => row.column1 > 25);
+// Show first 5 rows
+result = head(result, 5);
+
+// Filter rows where 'column1' > 25
+result = filter(result, row => row.column1 > 25);
+
+// Filter rows by list of values
+result = filterByList(result, 'column1', [10, 20, 30], false); // Include rows where column1 is 10, 20, or 30
+// result = filterByList(result, 'column1', [10, 20, 30], true); // Exclude rows where column1 is 10, 20, or 30
 
 // Add a calculated column
-result = result.map(row => ({
+result = map(result, row => ({
   ...row,
   newColumn: row.column1 * 2
 }));
@@ -67,10 +79,19 @@ return result;`;
     if (selectedFileId) {
       const file = files.find(f => f.id === selectedFileId);
       if (file && file.data) {
-        setPreviewData(file.data);
+        setPreviewData(file.data.slice(0, 100)); // Show only first 100 rows initially
       }
     }
   }, [selectedFileId, files]);
+
+  const showHeadRows = () => {
+    if (!selectedFileId) return;
+    const file = files.find(f => f.id === selectedFileId);
+    if (file && file.data) {
+      setPreviewData(file.data.slice(0, 10));
+      toast.success("Showing first 10 rows");
+    }
+  };
 
   const runCode = () => {
     setIsProcessing(true);
@@ -138,6 +159,44 @@ return result;`;
           });
         };
         
+        // New helper functions
+        const head = (data, n = 5) => data.slice(0, n);
+        const tail = (data, n = 5) => data.slice(Math.max(data.length - n, 0));
+        
+        const filterByList = (data, column, values, exclude = false) => {
+          return data.filter(row => {
+            const valueExists = values.includes(row[column]);
+            return exclude ? !valueExists : valueExists;
+          });
+        };
+        
+        const unique = (data, column) => {
+          return [...new Set(data.map(row => row[column]))];
+        };
+        
+        const describe = (data) => {
+          const columns = Object.keys(data[0] || {});
+          const result = {};
+          
+          columns.forEach(col => {
+            const values = data.map(row => row[col]).filter(val => !isNaN(Number(val))).map(Number);
+            if (values.length > 0) {
+              const sum = values.reduce((a, b) => a + b, 0);
+              const mean = sum / values.length;
+              const min = Math.min(...values);
+              const max = Math.max(...values);
+              const sorted = [...values].sort((a, b) => a - b);
+              const median = sorted.length % 2 === 0 
+                ? (sorted[sorted.length/2 - 1] + sorted[sorted.length/2]) / 2 
+                : sorted[Math.floor(sorted.length/2)];
+              
+              result[col] = { count: values.length, mean, min, max, median };
+            }
+          });
+          
+          return result;
+        };
+        
         // Execute user code
         (function() {
           ${code}
@@ -150,6 +209,30 @@ return result;`;
       if (Array.isArray(result)) {
         setPreviewData(result);
         toast.success("Code executed successfully");
+      } else if (typeof result === 'object' && result !== null) {
+        // Handle the case of stats/describe output
+        console.log("Non-array result:", result);
+        toast.success("Code executed successfully - showing stats");
+        
+        // Convert stats object to rows for display
+        const statsRows = [];
+        for (const [col, stats] of Object.entries(result)) {
+          if (typeof stats === 'object') {
+            for (const [stat, value] of Object.entries(stats as object)) {
+              statsRows.push({
+                column: col,
+                statistic: stat,
+                value: value
+              });
+            }
+          }
+        }
+        
+        if (statsRows.length > 0) {
+          setPreviewData(statsRows);
+        } else {
+          throw new Error("Code must return an array of objects or statistics");
+        }
       } else {
         throw new Error("Code must return an array of objects");
       }
@@ -204,6 +287,17 @@ return result;`;
             </Select>
             
             <div className="flex justify-end gap-2">
+              <Button 
+                variant="outline"
+                size="sm"
+                onClick={showHeadRows}
+                disabled={!selectedFileId}
+                className="flex items-center gap-2"
+              >
+                <Eye className="h-4 w-4" />
+                View First 10 Rows
+              </Button>
+              
               <Button 
                 variant="secondary"
                 size="sm"

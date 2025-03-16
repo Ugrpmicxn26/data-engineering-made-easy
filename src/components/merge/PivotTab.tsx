@@ -66,11 +66,12 @@ const PivotTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing
   };
 
   const handleValueFieldsChange = (values: string[]) => {
+    // Safely update valueFields to avoid undefined errors
     setState(prev => ({
       ...prev,
       pivotConfig: {
         ...prev.pivotConfig,
-        valueFields: values
+        valueFields: values || [] // Ensure we always have an array
       }
     }));
   };
@@ -249,7 +250,7 @@ const PivotTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing
                     )
                     .map(col => ({ label: col, value: col })) || []
                   }
-                  selected={state.pivotConfig.valueFields}
+                  selected={state.pivotConfig.valueFields || []}
                   onChange={handleValueFieldsChange}
                   placeholder="Select value fields"
                   className="w-full"
@@ -264,7 +265,7 @@ const PivotTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing
               <h4 className="text-sm font-medium mb-2">Aggregation Type</h4>
               <Select
                 value={state.pivotConfig.aggregation}
-                onValueChange={(value: "sum" | "count" | "average" | "min" | "max") => 
+                onValueChange={(value: "sum" | "count" | "average" | "min" | "max" | "first") => 
                   setState(prev => ({ 
                     ...prev, 
                     pivotConfig: { ...prev.pivotConfig, aggregation: value }
@@ -275,6 +276,7 @@ const PivotTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing
                   <SelectValue placeholder="Select aggregation type" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="first">First Value</SelectItem>
                   <SelectItem value="sum">Sum</SelectItem>
                   <SelectItem value="count">Count</SelectItem>
                   <SelectItem value="average">Average</SelectItem>

@@ -38,7 +38,7 @@ export interface PivotConfig {
   rowFields: string[];
   columnField: string;
   valueFields: string[];
-  aggregation: "sum" | "count" | "average" | "min" | "max";
+  aggregation: "sum" | "count" | "average" | "min" | "max" | "first";
 }
 
 // Function to read a file as text
@@ -428,7 +428,7 @@ export function pivotData(data: any[], config: PivotConfig): any[] {
         const values = matchingRows
           .map(row => {
             const val = row[valueField];
-            return isNaN(Number(val)) ? null : Number(val);
+            return isNaN(Number(val)) && aggregation !== "first" && aggregation !== "count" ? null : val;
           })
           .filter(val => val !== null);
         
@@ -439,19 +439,22 @@ export function pivotData(data: any[], config: PivotConfig): any[] {
         
         switch (aggregation) {
           case 'sum':
-            newRow[pivotColName] = values.reduce((sum, val) => sum + val, 0);
+            newRow[pivotColName] = values.reduce((sum, val) => sum + Number(val), 0);
             break;
           case 'count':
             newRow[pivotColName] = values.length;
             break;
           case 'average':
-            newRow[pivotColName] = values.reduce((sum, val) => sum + val, 0) / values.length;
+            newRow[pivotColName] = values.reduce((sum, val) => sum + Number(val), 0) / values.length;
             break;
           case 'min':
-            newRow[pivotColName] = Math.min(...values);
+            newRow[pivotColName] = Math.min(...values.map(v => Number(v)));
             break;
           case 'max':
-            newRow[pivotColName] = Math.max(...values);
+            newRow[pivotColName] = Math.max(...values.map(v => Number(v)));
+            break;
+          case 'first':
+            newRow[pivotColName] = values[0];
             break;
           default:
             newRow[pivotColName] = null;
