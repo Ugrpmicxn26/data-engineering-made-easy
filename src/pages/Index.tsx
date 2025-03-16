@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { FileData } from "@/utils/fileUtils";
 import FileDropZone from "@/components/FileDropZone";
@@ -91,6 +92,7 @@ const Index = () => {
       data: data,
       columns: data.length > 0 ? Object.keys(data[0]) : [],
       selected: true,
+      content: '', // Add the missing content property
     };
     
     setFiles(prev => [...prev, newFile]);
