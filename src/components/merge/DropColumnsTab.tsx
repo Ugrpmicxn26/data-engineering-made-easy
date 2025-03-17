@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import ConfigHeader from "./ConfigHeader";
 import { ActionTabProps, DropColumnsTabState } from "./types";
-import { excludeColumns } from "@/utils/fileUtils";
+import { excludeColumns, generateCSV } from "@/utils/fileUtils";
 import { toast } from "sonner";
 
 const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing, onComplete }) => {
@@ -46,6 +46,10 @@ const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
       });
 
       const remainingColumns = fileToModify.columns.filter(col => !state.columnsToExclude.includes(col));
+      
+      // Generate new CSV content and calculate size
+      const newContent = generateCSV(modifiedData);
+      const newSize = new Blob([newContent]).size;
 
       const updatedFiles = [...files];
       const fileIndex = updatedFiles.findIndex(f => f.id === state.dropColumnsFile);
@@ -54,7 +58,9 @@ const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
         updatedFiles[fileIndex] = {
           ...fileToModify,
           data: modifiedData,
-          columns: remainingColumns
+          columns: remainingColumns,
+          content: newContent,
+          size: newSize // Update the file size
         };
         
         onComplete(modifiedData, updatedFiles);

@@ -49,7 +49,7 @@ const ActionTabs: React.FC<ActionTabsProps> = ({ currentAction, setCurrentAction
         onClick={() => setCurrentAction(ACTION_TYPES.DROP_ROWS)}
       >
         <RowsIcon className="mr-2 h-4 w-4" />
-        Filter Rows
+        Filter By Values
       </Button>
       <Button 
         variant={currentAction === ACTION_TYPES.RENAME_COLUMNS ? "default" : "outline"} 
