@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from "react";
-import { Replace, PlusCircle, Wand2, Info } from "lucide-react";
+import { Replace, PlusCircle, Wand2, Info, Columns } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import ConfigHeader from "./ConfigHeader";
 import { ActionTabProps } from "./types";
 import { generateCSV } from "@/utils/fileUtils";
@@ -31,7 +33,8 @@ const RegexTransformTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isP
     transformMode: 'modify' as 'modify' | 'newColumn',
     newColumnName: "",
     columnFormula: "",
-    defaultValue: ""
+    defaultValue: "",
+    referenceColumns: [] as string[]
   });
 
   // Update preview when inputs change
@@ -51,7 +54,8 @@ const RegexTransformTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isP
     state.transformMode,
     state.newColumnName,
     state.columnFormula,
-    state.defaultValue
+    state.defaultValue,
+    state.referenceColumns
   ]);
 
   const updatePreview = () => {
@@ -105,10 +109,27 @@ const RegexTransformTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isP
         } else {
           // For new column mode
           if (state.columnFormula) {
-            // Simple formula support: Use the column value or a default value
-            transformed = state.columnFormula.includes("$value") 
-              ? state.columnFormula.replace(/\$value/g, original)
-              : state.defaultValue;
+            // Get a sample row that contains this value
+            const sampleRow = file.data.find(row => String(row[state.column as string] || '') === original);
+            
+            if (sampleRow) {
+              // Process formula with all reference columns
+              let processedFormula = state.columnFormula;
+              
+              // Replace the primary column reference
+              processedFormula = processedFormula.replace(/\$value/g, original);
+              
+              // Replace additional column references
+              state.referenceColumns.forEach(colName => {
+                const colValue = String(sampleRow[colName] || '');
+                const colPlaceholder = `$${colName}`;
+                processedFormula = processedFormula.replace(new RegExp(`\\${colPlaceholder}`, 'g'), colValue);
+              });
+              
+              transformed = processedFormula;
+            } else {
+              transformed = state.defaultValue;
+            }
           } else {
             transformed = state.defaultValue;
           }
@@ -175,10 +196,21 @@ const RegexTransformTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isP
             let value = state.defaultValue;
             
             if (state.columnFormula) {
+              // Start with the formula
+              let processedFormula = state.columnFormula;
+              
+              // Replace primary column reference
               const colValue = String(newRow[state.column] || '');
-              value = state.columnFormula.includes("$value") 
-                ? state.columnFormula.replace(/\$value/g, colValue)
-                : state.defaultValue;
+              processedFormula = processedFormula.replace(/\$value/g, colValue);
+              
+              // Replace additional column references
+              state.referenceColumns.forEach(colName => {
+                const refColValue = String(newRow[colName] || '');
+                const colPlaceholder = `$${colName}`;
+                processedFormula = processedFormula.replace(new RegExp(`\\${colPlaceholder}`, 'g'), refColValue);
+              });
+              
+              value = processedFormula;
             }
             
             newRow[state.newColumnName] = value;
@@ -224,10 +256,29 @@ const RegexTransformTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isP
       toast.error(`Error: ${error instanceof Error ? error.message : "Invalid operation"}`);
     }
   };
-
+  
+  // Get column selection options for the current file
   const columns = state.fileId 
     ? files.find(f => f.id === state.fileId)?.columns || [] 
     : [];
+    
+  // Add a selected reference column
+  const addReferenceColumn = (column: string) => {
+    if (!state.referenceColumns.includes(column)) {
+      setState(prev => ({
+        ...prev,
+        referenceColumns: [...prev.referenceColumns, column]
+      }));
+    }
+  };
+  
+  // Remove a reference column
+  const removeReferenceColumn = (column: string) => {
+    setState(prev => ({
+      ...prev,
+      referenceColumns: prev.referenceColumns.filter(c => c !== column)
+    }));
+  };
 
   return (
     <div className="space-y-4">
@@ -258,7 +309,8 @@ const RegexTransformTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isP
                       ...prev,
                       fileId: value,
                       column: null,
-                      preview: []
+                      preview: [],
+                      referenceColumns: []
                     }));
                   }}
                 >
@@ -276,7 +328,7 @@ const RegexTransformTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isP
               </div>
               
               <div>
-                <Label className="text-sm font-medium mb-1.5 block">Select Column</Label>
+                <Label className="text-sm font-medium mb-1.5 block">Select Primary Column</Label>
                 <Select
                   value={state.column || ""}
                   onValueChange={(value) => {
@@ -420,7 +472,7 @@ const RegexTransformTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isP
                     
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
-                        <Label className="text-sm font-medium">Column Formula (Optional)</Label>
+                        <Label className="text-sm font-medium">Column Formula</Label>
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -429,8 +481,9 @@ const RegexTransformTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isP
                               </div>
                             </TooltipTrigger>
                             <TooltipContent className="max-w-sm">
-                              <p>Use <code>$value</code> to reference the value from the selected column.</p>
-                              <p className="text-xs mt-1">Examples: <code>prefix_$value</code>, <code>$value_suffix</code>, <code>$value-transformed</code></p>
+                              <p>Use <code>$value</code> to reference the value from the primary column.</p>
+                              <p>Use <code>$columnName</code> to reference values from other columns.</p>
+                              <p className="text-xs mt-1">Examples: <code>$value_$category</code>, <code>$firstName $lastName</code></p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -438,7 +491,7 @@ const RegexTransformTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isP
                       <Input
                         value={state.columnFormula}
                         onChange={(e) => setState(prev => ({ ...prev, columnFormula: e.target.value }))}
-                        placeholder="e.g. prefix_$value or $value_suffix"
+                        placeholder="e.g. $value_$category or $firstName $lastName"
                       />
                     </div>
                     
@@ -450,14 +503,85 @@ const RegexTransformTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isP
                         placeholder="Value to use when no formula is provided"
                       />
                     </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium">Reference Columns</Label>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="inline-flex">
+                                <Info className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-sm">
+                              <p>Select additional columns to reference in your formula.</p>
+                              <p className="text-xs mt-1">Use <code>$columnName</code> in your formula to include values from these columns.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {state.referenceColumns.map(column => (
+                          <Badge 
+                            key={column} 
+                            variant="secondary"
+                            className="flex items-center gap-1 px-2 py-1"
+                          >
+                            {column}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-4 w-4 p-0 ml-1 hover:bg-destructive/20 rounded-full"
+                              onClick={() => removeReferenceColumn(column)}
+                            >
+                              <span className="sr-only">Remove</span>
+                              ×
+                            </Button>
+                          </Badge>
+                        ))}
+                        {state.referenceColumns.length === 0 && (
+                          <div className="text-sm text-muted-foreground italic">
+                            No additional columns selected
+                          </div>
+                        )}
+                      </div>
+                      
+                      <Select
+                        onValueChange={(column) => {
+                          if (column && column !== state.column) {
+                            addReferenceColumn(column);
+                          }
+                        }}
+                        disabled={!state.fileId}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Add reference column..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {columns
+                            .filter(col => col !== state.column && !state.referenceColumns.includes(col))
+                            .map(column => (
+                              <SelectItem key={column} value={column}>
+                                {column}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   
                   <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/30 rounded-md p-3 text-sm text-amber-800 dark:text-amber-300">
                     <div className="flex gap-2">
                       <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
                       <div>
-                        <p>To use the selected column's value in your new column, include <code className="bg-amber-100 dark:bg-amber-900/30 px-1 rounded">$value</code> in your formula.</p>
-                        <p className="mt-1">If no formula is provided, the default value will be used for all rows.</p>
+                        <p>To use column values in your new column:</p>
+                        <ul className="list-disc pl-5 mt-1 space-y-1">
+                          <li>Use <code className="bg-amber-100 dark:bg-amber-900/30 px-1 rounded">$value</code> for the primary column's value</li>
+                          <li>Use <code className="bg-amber-100 dark:bg-amber-900/30 px-1 rounded">$columnName</code> for other column values</li>
+                          <li>Example: <code className="bg-amber-100 dark:bg-amber-900/30 px-1 rounded">$firstName $lastName</code> concatenates first and last name columns</li>
+                        </ul>
                       </div>
                     </div>
                   </div>

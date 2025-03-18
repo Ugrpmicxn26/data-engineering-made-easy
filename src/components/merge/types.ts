@@ -68,4 +68,5 @@ export interface RegexTransformTabState {
   newColumnName: string;
   columnFormula: string;
   defaultValue: string;
+  referenceColumns: string[];  // New field to store multiple reference columns
 }
