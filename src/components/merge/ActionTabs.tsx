@@ -7,7 +7,8 @@ import {
   RowsIcon,
   Tag,
   Scissors,
-  Grid3X3
+  Grid3X3,
+  Replace
 } from "lucide-react";
 
 interface ActionTabsProps {
@@ -21,7 +22,8 @@ export const ACTION_TYPES = {
   DROP_ROWS: "dropRows",
   RENAME_COLUMNS: "renameColumns",
   TRIM_COLUMNS: "trimColumns",
-  PIVOT: "pivot"
+  PIVOT: "pivot",
+  REGEX_TRANSFORM: "regexTransform"
 };
 
 const ActionTabs: React.FC<ActionTabsProps> = ({ currentAction, setCurrentAction }) => {
@@ -74,6 +76,14 @@ const ActionTabs: React.FC<ActionTabsProps> = ({ currentAction, setCurrentAction
       >
         <Grid3X3 className="mr-2 h-4 w-4" />
         Pivot Table
+      </Button>
+      <Button 
+        variant={currentAction === ACTION_TYPES.REGEX_TRANSFORM ? "default" : "outline"} 
+        size="sm"
+        onClick={() => setCurrentAction(ACTION_TYPES.REGEX_TRANSFORM)}
+      >
+        <Replace className="mr-2 h-4 w-4" />
+        Regex Transform
       </Button>
     </div>
   );

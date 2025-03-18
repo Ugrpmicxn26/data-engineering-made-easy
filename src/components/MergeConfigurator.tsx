@@ -11,6 +11,7 @@ import DropRowsTab from "./merge/DropRowsTab";
 import RenameColumnsTab from "./merge/RenameColumnsTab";
 import TrimColumnsTab from "./merge/TrimColumnsTab";
 import PivotTab from "./merge/PivotTab";
+import RegexTransformTab from "./merge/RegexTransformTab";
 import EmptyFilesMessage from "./merge/EmptyFilesMessage";
 
 interface MergeConfiguratorProps {
@@ -102,6 +103,15 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
 
       {currentAction === ACTION_TYPES.PIVOT && (
         <PivotTab 
+          files={files} 
+          selectedFiles={selectedFiles} 
+          isProcessing={isProcessing} 
+          onComplete={handleComplete} 
+        />
+      )}
+
+      {currentAction === ACTION_TYPES.REGEX_TRANSFORM && (
+        <RegexTransformTab 
           files={files} 
           selectedFiles={selectedFiles} 
           isProcessing={isProcessing} 

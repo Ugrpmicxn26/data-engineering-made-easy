@@ -53,3 +53,15 @@ export interface PivotTabState {
   pivotFile: string | null;
   pivotConfig: PivotConfig;
 }
+
+export interface RegexTransformTabState {
+  fileId: string | null;
+  column: string | null;
+  pattern: string;
+  replacement: string;
+  globalFlag: boolean;
+  caseInsensitiveFlag: boolean;
+  multilineFlag: boolean;
+  previewTransform: boolean;
+  preview: { original: string; transformed: string }[];
+}
