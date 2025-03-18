@@ -64,4 +64,8 @@ export interface RegexTransformTabState {
   multilineFlag: boolean;
   previewTransform: boolean;
   preview: { original: string; transformed: string }[];
+  transformMode: 'modify' | 'newColumn';  // New field to indicate mode
+  newColumnName: string;                  // New field for the new column name
+  columnFormula: string;                  // New field for column formula
+  defaultValue: string;                   // New field for default value
 }

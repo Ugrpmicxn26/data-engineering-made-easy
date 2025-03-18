@@ -83,7 +83,7 @@ const ActionTabs: React.FC<ActionTabsProps> = ({ currentAction, setCurrentAction
         onClick={() => setCurrentAction(ACTION_TYPES.REGEX_TRANSFORM)}
       >
         <Replace className="mr-2 h-4 w-4" />
-        Regex Transform
+        Column Transformer
       </Button>
     </div>
   );
