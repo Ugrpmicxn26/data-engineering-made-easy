@@ -19,6 +19,27 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 const MAX_PREVIEW_ITEMS = 20;
 
+// Helper function to evaluate arithmetic expressions
+const evaluateExpression = (expression: string): number | string => {
+  try {
+    // Replace any mathematical operations with their JavaScript equivalents
+    const sanitizedExpression = expression
+      .replace(/\s+/g, '')  // Remove all whitespace
+      .replace(/[^0-9+\-*/().]/g, ''); // Keep only numbers and math operators
+    
+    // Use Function constructor to evaluate the expression
+    // This is safer than eval() as it creates a new scope
+    if (sanitizedExpression) {
+      const result = new Function(`return ${sanitizedExpression}`)();
+      return isNaN(result) ? expression : result;
+    }
+    return expression;
+  } catch (e) {
+    console.error("Error evaluating expression:", e);
+    return expression;
+  }
+};
+
 const RegexTransformTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing, onComplete }) => {
   const [state, setState] = useState({
     fileId: null as string | null,
@@ -119,14 +140,29 @@ const RegexTransformTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isP
               // Replace the primary column reference
               processedFormula = processedFormula.replace(/\$value/g, original);
               
-              // Replace additional column references
+              // Replace additional column references with their values
               state.referenceColumns.forEach(colName => {
                 const colValue = String(sampleRow[colName] || '');
                 const colPlaceholder = `$${colName}`;
-                processedFormula = processedFormula.replace(new RegExp(`\\${colPlaceholder}`, 'g'), colValue);
+                
+                // Check if the column value is numeric
+                const numericValue = !isNaN(Number(colValue)) ? Number(colValue) : colValue;
+                processedFormula = processedFormula.replace(
+                  new RegExp(`\\${colPlaceholder}`, 'g'), 
+                  typeof numericValue === 'number' ? String(numericValue) : `"${colValue}"`
+                );
               });
               
-              transformed = processedFormula;
+              // Evaluate arithmetic expressions
+              if (/[+\-*/()]/.test(processedFormula)) {
+                try {
+                  transformed = String(evaluateExpression(processedFormula));
+                } catch (e) {
+                  transformed = processedFormula;
+                }
+              } else {
+                transformed = processedFormula;
+              }
             } else {
               transformed = state.defaultValue;
             }
@@ -203,14 +239,29 @@ const RegexTransformTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isP
               const colValue = String(newRow[state.column] || '');
               processedFormula = processedFormula.replace(/\$value/g, colValue);
               
-              // Replace additional column references
+              // Replace additional column references with their values
               state.referenceColumns.forEach(colName => {
                 const refColValue = String(newRow[colName] || '');
                 const colPlaceholder = `$${colName}`;
-                processedFormula = processedFormula.replace(new RegExp(`\\${colPlaceholder}`, 'g'), refColValue);
+                
+                // Check if the column value is numeric
+                const numericValue = !isNaN(Number(refColValue)) ? Number(refColValue) : refColValue;
+                processedFormula = processedFormula.replace(
+                  new RegExp(`\\${colPlaceholder}`, 'g'), 
+                  typeof numericValue === 'number' ? String(numericValue) : `"${refColValue}"`
+                );
               });
               
-              value = processedFormula;
+              // Evaluate arithmetic expressions
+              if (/[+\-*/()]/.test(processedFormula)) {
+                try {
+                  value = String(evaluateExpression(processedFormula));
+                } catch (e) {
+                  value = processedFormula;
+                }
+              } else {
+                value = processedFormula;
+              }
             }
             
             newRow[state.newColumnName] = value;
@@ -483,7 +534,8 @@ const RegexTransformTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isP
                             <TooltipContent className="max-w-sm">
                               <p>Use <code>$value</code> to reference the value from the primary column.</p>
                               <p>Use <code>$columnName</code> to reference values from other columns.</p>
-                              <p className="text-xs mt-1">Examples: <code>$value_$category</code>, <code>$firstName $lastName</code></p>
+                              <p>You can use arithmetic operators: <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code></p>
+                              <p className="text-xs mt-1">Examples: <code>$value_$category</code>, <code>$firstName $lastName</code>, <code>$price + $tax</code></p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -491,7 +543,7 @@ const RegexTransformTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isP
                       <Input
                         value={state.columnFormula}
                         onChange={(e) => setState(prev => ({ ...prev, columnFormula: e.target.value }))}
-                        placeholder="e.g. $value_$category or $firstName $lastName"
+                        placeholder="e.g. $value_$category or $price + $tax"
                       />
                     </div>
                     
@@ -517,6 +569,7 @@ const RegexTransformTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isP
                             <TooltipContent className="max-w-sm">
                               <p>Select additional columns to reference in your formula.</p>
                               <p className="text-xs mt-1">Use <code>$columnName</code> in your formula to include values from these columns.</p>
+                              <p className="text-xs mt-1">For example: <code>$price + $tax</code> to calculate total price.</p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -580,7 +633,8 @@ const RegexTransformTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isP
                         <ul className="list-disc pl-5 mt-1 space-y-1">
                           <li>Use <code className="bg-amber-100 dark:bg-amber-900/30 px-1 rounded">$value</code> for the primary column's value</li>
                           <li>Use <code className="bg-amber-100 dark:bg-amber-900/30 px-1 rounded">$columnName</code> for other column values</li>
-                          <li>Example: <code className="bg-amber-100 dark:bg-amber-900/30 px-1 rounded">$firstName $lastName</code> concatenates first and last name columns</li>
+                          <li>Mathematical operations are supported: <code className="bg-amber-100 dark:bg-amber-900/30 px-1 rounded">$price + $tax</code></li>
+                          <li>Example: <code className="bg-amber-100 dark:bg-amber-900/30 px-1 rounded">$quantity * $price</code> multiplies quantity and price columns</li>
                         </ul>
                       </div>
                     </div>
