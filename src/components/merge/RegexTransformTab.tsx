@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Replace, PlusCircle, Wand2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,6 +14,8 @@ import { ActionTabProps } from "./types";
 import { generateCSV } from "@/utils/fileUtils";
 import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+const MAX_PREVIEW_ITEMS = 20;
 
 const RegexTransformTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing, onComplete }) => {
   const [state, setState] = useState({
@@ -58,9 +59,32 @@ const RegexTransformTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isP
       const file = files.find(f => f.id === state.fileId);
       if (!file || !file.data || !state.column) return;
 
-      // Get sample values (first 5)
-      let sampleValues = file.data.slice(0, 5).map(row => {
-        let original = String(row[state.column as string] || '');
+      // Get unique values
+      const allValues = file.data.map(row => String(row[state.column as string] || ''));
+      const uniqueValues = [...new Set(allValues)];
+      
+      // Get up to MAX_PREVIEW_ITEMS diverse samples
+      let sampleValues: { original: string; transformed: string }[] = [];
+      
+      if (uniqueValues.length <= MAX_PREVIEW_ITEMS) {
+        // If we have fewer unique values than MAX_PREVIEW_ITEMS, use all of them
+        sampleValues = uniqueValues.map(value => ({ original: value, transformed: value }));
+      } else {
+        // Otherwise, get a representative sample
+        const step = Math.floor(uniqueValues.length / MAX_PREVIEW_ITEMS);
+        for (let i = 0; i < MAX_PREVIEW_ITEMS; i++) {
+          const index = i * step;
+          if (index < uniqueValues.length) {
+            sampleValues.push({ 
+              original: uniqueValues[index], 
+              transformed: uniqueValues[index] 
+            });
+          }
+        }
+      }
+      
+      // Apply transformations
+      sampleValues = sampleValues.map(({ original }) => {
         let transformed = original;
 
         if (state.transformMode === 'modify') {
@@ -70,9 +94,14 @@ const RegexTransformTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isP
           if (state.caseInsensitiveFlag) flags += 'i';
           if (state.multilineFlag) flags += 'm';
 
-          // Create regex
-          const regex = new RegExp(state.pattern, flags);
-          transformed = original.replace(regex, state.replacement);
+          try {
+            // Create regex
+            const regex = new RegExp(state.pattern, flags);
+            transformed = original.replace(regex, state.replacement);
+          } catch (e) {
+            // If regex is invalid, don't transform
+            transformed = original;
+          }
         } else {
           // For new column mode
           if (state.columnFormula) {
@@ -207,7 +236,7 @@ const RegexTransformTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isP
         description="Transform column values with regex or add new columns based on formulas."
       />
       
-      <Card>
+      <Card className="bg-card/90 backdrop-blur-sm shadow-sm">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
             <Replace className="h-5 w-5 text-primary" />
@@ -451,9 +480,9 @@ const RegexTransformTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isP
               <div className="border rounded-md p-4 bg-muted/20">
                 <h4 className="text-sm font-medium mb-3 flex items-center">
                   <Wand2 className="h-4 w-4 mr-1.5 text-primary" />
-                  Preview (first 5 values)
+                  Preview ({state.preview.length > 1 ? `${state.preview.length} unique values` : '1 value'})
                 </h4>
-                <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2">
+                <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
                   {state.preview.map((item, index) => (
                     <div key={index} className="grid grid-cols-2 gap-4 text-sm p-2 rounded-sm odd:bg-muted/10">
                       <div className="overflow-hidden text-ellipsis">

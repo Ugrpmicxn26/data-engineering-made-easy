@@ -8,12 +8,17 @@ import {
   Tag,
   Scissors,
   Grid3X3,
-  Replace
+  Replace,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ActionTabsProps {
   currentAction: string;
   setCurrentAction: (action: string) => void;
+  sidebarCollapsed: boolean;
+  toggleSidebar: () => void;
 }
 
 export const ACTION_TYPES = {
@@ -26,65 +31,83 @@ export const ACTION_TYPES = {
   REGEX_TRANSFORM: "regexTransform"
 };
 
-const ActionTabs: React.FC<ActionTabsProps> = ({ currentAction, setCurrentAction }) => {
+const ActionTabs: React.FC<ActionTabsProps> = ({ 
+  currentAction, 
+  setCurrentAction, 
+  sidebarCollapsed, 
+  toggleSidebar 
+}) => {
+  const actionButtons = [
+    {
+      type: ACTION_TYPES.MERGE,
+      label: "Merge Data",
+      icon: Layers
+    },
+    {
+      type: ACTION_TYPES.DROP_COLUMNS,
+      label: "Drop Columns",
+      icon: ColumnsIcon
+    },
+    {
+      type: ACTION_TYPES.DROP_ROWS,
+      label: "Filter By Values",
+      icon: RowsIcon
+    },
+    {
+      type: ACTION_TYPES.RENAME_COLUMNS,
+      label: "Rename Columns",
+      icon: Tag
+    },
+    {
+      type: ACTION_TYPES.TRIM_COLUMNS,
+      label: "Trim Values",
+      icon: Scissors
+    },
+    {
+      type: ACTION_TYPES.PIVOT,
+      label: "Pivot Table",
+      icon: Grid3X3
+    },
+    {
+      type: ACTION_TYPES.REGEX_TRANSFORM,
+      label: "Column Transformer",
+      icon: Replace
+    }
+  ];
+
   return (
-    <div className="flex flex-wrap gap-2 mb-4">
-      <Button 
-        variant={currentAction === ACTION_TYPES.MERGE ? "default" : "outline"} 
-        size="sm"
-        onClick={() => setCurrentAction(ACTION_TYPES.MERGE)}
-      >
-        <Layers className="mr-2 h-4 w-4" />
-        Merge Data
-      </Button>
-      <Button 
-        variant={currentAction === ACTION_TYPES.DROP_COLUMNS ? "default" : "outline"} 
-        size="sm"
-        onClick={() => setCurrentAction(ACTION_TYPES.DROP_COLUMNS)}
-      >
-        <ColumnsIcon className="mr-2 h-4 w-4" />
-        Drop Columns
-      </Button>
-      <Button 
-        variant={currentAction === ACTION_TYPES.DROP_ROWS ? "default" : "outline"} 
-        size="sm"
-        onClick={() => setCurrentAction(ACTION_TYPES.DROP_ROWS)}
-      >
-        <RowsIcon className="mr-2 h-4 w-4" />
-        Filter By Values
-      </Button>
-      <Button 
-        variant={currentAction === ACTION_TYPES.RENAME_COLUMNS ? "default" : "outline"} 
-        size="sm"
-        onClick={() => setCurrentAction(ACTION_TYPES.RENAME_COLUMNS)}
-      >
-        <Tag className="mr-2 h-4 w-4" />
-        Rename Columns
-      </Button>
-      <Button 
-        variant={currentAction === ACTION_TYPES.TRIM_COLUMNS ? "default" : "outline"} 
-        size="sm"
-        onClick={() => setCurrentAction(ACTION_TYPES.TRIM_COLUMNS)}
-      >
-        <Scissors className="mr-2 h-4 w-4" />
-        Trim Values
-      </Button>
-      <Button 
-        variant={currentAction === ACTION_TYPES.PIVOT ? "default" : "outline"} 
-        size="sm"
-        onClick={() => setCurrentAction(ACTION_TYPES.PIVOT)}
-      >
-        <Grid3X3 className="mr-2 h-4 w-4" />
-        Pivot Table
-      </Button>
-      <Button 
-        variant={currentAction === ACTION_TYPES.REGEX_TRANSFORM ? "default" : "outline"} 
-        size="sm"
-        onClick={() => setCurrentAction(ACTION_TYPES.REGEX_TRANSFORM)}
-      >
-        <Replace className="mr-2 h-4 w-4" />
-        Column Transformer
-      </Button>
+    <div className={cn(
+      "transition-all duration-300 ease-in-out flex flex-col h-full border-r bg-card/80 backdrop-blur-sm",
+      sidebarCollapsed ? "w-16" : "w-56"
+    )}>
+      <div className="flex justify-end p-2">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={toggleSidebar} 
+          className="text-muted-foreground hover:text-foreground"
+        >
+          {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+        </Button>
+      </div>
+      
+      <div className="p-2 flex-1 overflow-y-auto space-y-1">
+        {actionButtons.map(({ type, label, icon: Icon }) => (
+          <Button 
+            key={type}
+            variant={currentAction === type ? "default" : "ghost"} 
+            size="sm"
+            onClick={() => setCurrentAction(type)}
+            className={cn(
+              "w-full justify-start",
+              sidebarCollapsed ? "px-2" : "px-4"
+            )}
+          >
+            <Icon className={cn("h-4 w-4", sidebarCollapsed ? "mr-0" : "mr-2")} />
+            {!sidebarCollapsed && <span>{label}</span>}
+          </Button>
+        ))}
+      </div>
     </div>
   );
 };
