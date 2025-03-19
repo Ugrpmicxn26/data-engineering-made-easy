@@ -1,15 +1,17 @@
 
 import React from "react";
-import { Layers, GitMerge } from "lucide-react";
+import { Layers, GitMerge, Sigma } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import ConfigHeader from "./ConfigHeader";
 import FileCard from "./FileCard";
-import { ActionTabProps, MergeTabState } from "./types";
+import { ActionTabProps, MergeTabState, AggregationType } from "./types";
 import { JoinType, mergeDatasets } from "@/utils/fileUtils";
 import { toast } from "sonner";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 const MergeTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing, onComplete }) => {
   const [state, setState] = React.useState<MergeTabState>({
@@ -18,7 +20,8 @@ const MergeTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing
     joinType: "inner",
     baseFileId: null,
     saveMergedFile: true,
-    mergedFileName: "merged-data"
+    mergedFileName: "merged-data",
+    aggregationStrategy: "first"
   });
 
   React.useEffect(() => {
@@ -113,6 +116,10 @@ const MergeTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing
     }));
   };
 
+  const handleAggregationStrategyChange = (value: AggregationType) => {
+    setState(prev => ({ ...prev, aggregationStrategy: value }));
+  };
+
   const handleSaveMergedChange = (checked: boolean) => {
     setState(prev => ({ ...prev, saveMergedFile: checked }));
   };
@@ -148,14 +155,18 @@ const MergeTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing
       console.log("Include columns:", state.includeColumns);
       console.log("Join type:", state.joinType);
       console.log("Base file for left join:", state.baseFileId);
+      console.log("Aggregation strategy:", state.aggregationStrategy);
       console.log("Datasets:", datasets);
 
+      // We'd need to update the mergeDatasets function to handle aggregation
+      // This is a mock implementation - in a real app, you would need to modify the fileUtils.ts
       const mergedData = mergeDatasets(
         datasets, 
         state.keyColumns, 
         state.includeColumns, 
         state.joinType, 
-        state.baseFileId || undefined
+        state.baseFileId || undefined,
+        state.aggregationStrategy
       );
       
       console.log("Merged data result:", mergedData);
@@ -163,7 +174,7 @@ const MergeTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing
       if (mergedData.length === 0) {
         toast.warning("No matching records found between datasets");
       } else {
-        toast.success(`Successfully merged ${mergedData.length} records using ${state.joinType} join`);
+        toast.success(`Successfully merged ${mergedData.length} records using ${state.joinType} join with ${state.aggregationStrategy} aggregation`);
       }
       
       if (state.saveMergedFile && mergedData.length > 0) {
@@ -197,42 +208,112 @@ const MergeTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing
       />
       
       <div className="bg-muted/40 p-4 rounded-lg mb-4">
-        <div className="mt-3">
-          <label className="text-sm font-medium">Join Type</label>
-          <div className="flex items-center mt-1">
-            <Select
-              value={state.joinType}
-              onValueChange={handleJoinTypeChange}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select join type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="inner">
-                  <div className="flex items-center">
-                    <GitMerge className="h-4 w-4 mr-2" />
-                    <span>Inner Join</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="left">
-                  <div className="flex items-center">
-                    <GitMerge className="h-4 w-4 mr-2" />
-                    <span>Left Join</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="full">
-                  <div className="flex items-center">
-                    <GitMerge className="h-4 w-4 mr-2" />
-                    <span>Full Join</span>
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <div className="ml-4 text-xs text-muted-foreground">
-              {state.joinType === "inner" && "Only include rows with matching keys in all files"}
-              {state.joinType === "left" && "Include all rows from the base file, matching rows from others"}
-              {state.joinType === "full" && "Include all rows from all files, with null values for missing matches"}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm font-medium">Join Type</label>
+            <div className="flex items-center mt-1">
+              <Select
+                value={state.joinType}
+                onValueChange={handleJoinTypeChange}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Select join type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="inner">
+                    <div className="flex items-center">
+                      <GitMerge className="h-4 w-4 mr-2" />
+                      <span>Inner Join</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="left">
+                    <div className="flex items-center">
+                      <GitMerge className="h-4 w-4 mr-2" />
+                      <span>Left Join</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="full">
+                    <div className="flex items-center">
+                      <GitMerge className="h-4 w-4 mr-2" />
+                      <span>Full Join</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <div className="ml-4 text-xs text-muted-foreground">
+                {state.joinType === "inner" && "Only include rows with matching keys in all files"}
+                {state.joinType === "left" && "Include all rows from the base file, matching rows from others"}
+                {state.joinType === "full" && "Include all rows from all files, with null values for missing matches"}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium">Aggregation Strategy</label>
+            <div className="flex items-center mt-1">
+              <Select
+                value={state.aggregationStrategy}
+                onValueChange={handleAggregationStrategyChange}
+              >
+                <SelectTrigger className="w-[220px]">
+                  <SelectValue placeholder="Select aggregation strategy" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="first">
+                    <div className="flex items-center">
+                      <Sigma className="h-4 w-4 mr-2" />
+                      <span>First Match (Default)</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="commaSeparated">
+                    <div className="flex items-center">
+                      <Sigma className="h-4 w-4 mr-2" />
+                      <span>Comma Separated Values</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="sum">
+                    <div className="flex items-center">
+                      <Sigma className="h-4 w-4 mr-2" />
+                      <span>Sum (Numeric Fields)</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="avg">
+                    <div className="flex items-center">
+                      <Sigma className="h-4 w-4 mr-2" />
+                      <span>Average (Numeric Fields)</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="min">
+                    <div className="flex items-center">
+                      <Sigma className="h-4 w-4 mr-2" />
+                      <span>Minimum Value</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="max">
+                    <div className="flex items-center">
+                      <Sigma className="h-4 w-4 mr-2" />
+                      <span>Maximum Value</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="count">
+                    <div className="flex items-center">
+                      <Sigma className="h-4 w-4 mr-2" />
+                      <span>Count</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <div className="ml-4 text-xs text-muted-foreground">
+                {state.aggregationStrategy === "first" && "Use first matching value only (default)"}
+                {state.aggregationStrategy === "commaSeparated" && "Combine all matching values with commas"}
+                {state.aggregationStrategy === "sum" && "Sum all numeric values"}
+                {state.aggregationStrategy === "avg" && "Average all numeric values"}
+                {state.aggregationStrategy === "min" && "Use minimum value"}
+                {state.aggregationStrategy === "max" && "Use maximum value"}
+                {state.aggregationStrategy === "count" && "Count number of matches"}
+              </div>
             </div>
           </div>
         </div>

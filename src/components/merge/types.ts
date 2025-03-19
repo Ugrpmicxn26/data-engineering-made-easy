@@ -19,6 +19,8 @@ export interface KeyColumnEntry {
   index: number;
 }
 
+export type AggregationType = 'first' | 'commaSeparated' | 'sum' | 'avg' | 'min' | 'max' | 'count';
+
 export interface MergeTabState {
   keyColumns: Record<string, string[]>;
   includeColumns: Record<string, string[]>;
@@ -26,6 +28,7 @@ export interface MergeTabState {
   baseFileId: string | null;
   saveMergedFile: boolean;
   mergedFileName: string;
+  aggregationStrategy: AggregationType;
 }
 
 export interface DropColumnsTabState {
@@ -68,5 +71,5 @@ export interface RegexTransformTabState {
   newColumnName: string;
   columnFormula: string;
   defaultValue: string;
-  referenceColumns: string[];  // New field to store multiple reference columns
+  referenceColumns: string[];
 }

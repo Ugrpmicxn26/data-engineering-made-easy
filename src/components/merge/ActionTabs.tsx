@@ -13,6 +13,7 @@ import {
   ChevronRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface ActionTabsProps {
   currentAction: string;
@@ -76,38 +77,21 @@ const ActionTabs: React.FC<ActionTabsProps> = ({
   ];
 
   return (
-    <div className={cn(
-      "transition-all duration-300 ease-in-out flex flex-col h-full border-r bg-card/80 backdrop-blur-sm",
-      sidebarCollapsed ? "w-16" : "w-56"
-    )}>
-      <div className="flex justify-end p-2">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={toggleSidebar} 
-          className="text-muted-foreground hover:text-foreground"
-        >
-          {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-        </Button>
-      </div>
-      
-      <div className="p-2 flex-1 overflow-y-auto space-y-1">
-        {actionButtons.map(({ type, label, icon: Icon }) => (
-          <Button 
-            key={type}
-            variant={currentAction === type ? "default" : "ghost"} 
-            size="sm"
-            onClick={() => setCurrentAction(type)}
-            className={cn(
-              "w-full justify-start",
-              sidebarCollapsed ? "px-2" : "px-4"
-            )}
-          >
-            <Icon className={cn("h-4 w-4", sidebarCollapsed ? "mr-0" : "mr-2")} />
-            {!sidebarCollapsed && <span>{label}</span>}
-          </Button>
-        ))}
-      </div>
+    <div className="w-full mb-6 bg-card rounded-lg shadow-sm">
+      <Tabs value={currentAction} onValueChange={setCurrentAction} className="w-full">
+        <TabsList className="w-full h-auto flex flex-wrap justify-start gap-1 p-2">
+          {actionButtons.map(({ type, label, icon: Icon }) => (
+            <TabsTrigger 
+              key={type} 
+              value={type}
+              className="flex items-center data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
+              <Icon className="h-4 w-4 mr-2" />
+              <span>{label}</span>
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
     </div>
   );
 };
