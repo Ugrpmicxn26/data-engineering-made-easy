@@ -10,7 +10,8 @@ import {
   Grid3X3,
   Replace,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  PieChart
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -29,7 +30,8 @@ export const ACTION_TYPES = {
   RENAME_COLUMNS: "renameColumns",
   TRIM_COLUMNS: "trimColumns",
   PIVOT: "pivot",
-  REGEX_TRANSFORM: "regexTransform"
+  REGEX_TRANSFORM: "regexTransform",
+  GROUP_BY: "groupBy"
 };
 
 const ActionTabs: React.FC<ActionTabsProps> = ({ 
@@ -73,6 +75,11 @@ const ActionTabs: React.FC<ActionTabsProps> = ({
       type: ACTION_TYPES.REGEX_TRANSFORM,
       label: "Column Transformer",
       icon: Replace
+    },
+    {
+      type: ACTION_TYPES.GROUP_BY,
+      label: "Group & Market Share",
+      icon: PieChart
     }
   ];
 

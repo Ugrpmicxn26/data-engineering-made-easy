@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from "react";
 import {
   Table,
@@ -17,9 +16,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ChevronLeft, ChevronRight, Download, Search, Info } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Search, Info, BarChart2 } from "lucide-react";
 import { downloadCSV, detectColumnTypes, ColumnInfo } from "@/utils/fileUtils";
 import TableControls, { RowFilter, PivotConfig } from "./TableControls";
+import { PieChart, Pie, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, Cell, CartesianGrid, Legend, ResponsiveContainer } from "recharts";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 interface DataTableProps {
   data: any[];
@@ -44,6 +45,13 @@ const DataTable: React.FC<DataTableProps> = ({
   const [originalData] = useState<any[]>(data);
   const [columnInfo, setColumnInfo] = useState<Record<string, ColumnInfo>>({});
   const [showDataTypes, setShowDataTypes] = useState(false);
+  const [showChart, setShowChart] = useState(false);
+  const [chartType, setChartType] = useState<'pie' | 'bar'>('pie');
+  const [chartConfig, setChartConfig] = useState({
+    labelColumn: '',
+    valueColumn: ''
+  });
+
   const rowsPerPage = 10;
 
   useEffect(() => {
@@ -53,9 +61,29 @@ const DataTable: React.FC<DataTableProps> = ({
       setActiveColumns(initialColumns);
       setDisplayData(data);
       
-      // Detect data types
       const detectedColumnInfo = detectColumnTypes(data);
       setColumnInfo(detectedColumnInfo);
+
+      const marketShareColumns = initialColumns.filter(col => 
+        col.toLowerCase().includes('market') || 
+        col.toLowerCase().includes('share') || 
+        col.toLowerCase().includes('percent')
+      );
+      
+      if (marketShareColumns.length > 0) {
+        const possibleLabelColumns = initialColumns.filter(col => {
+          const info = detectedColumnInfo[col];
+          return info && info.type !== 'integer' && info.type !== 'decimal';
+        });
+        
+        if (possibleLabelColumns.length > 0 && marketShareColumns.length > 0) {
+          setChartConfig({
+            labelColumn: possibleLabelColumns[0],
+            valueColumn: marketShareColumns[0]
+          });
+          setShowChart(true);
+        }
+      }
     }
   }, [data]);
 
@@ -74,7 +102,6 @@ const DataTable: React.FC<DataTableProps> = ({
         });
       });
       
-      // If we have an onDataUpdate handler, call it with the filtered data
       if (onDataUpdate) {
         onDataUpdate(processedData);
       }
@@ -118,7 +145,6 @@ const DataTable: React.FC<DataTableProps> = ({
       setDisplayColumns([...remainingColumns, ...pivotColumns]);
       setActiveColumns([...remainingColumns, ...pivotColumns]);
       
-      // If we have an onDataUpdate handler, call it with the pivoted data
       if (onDataUpdate) {
         onDataUpdate(processedData);
       }
@@ -146,6 +172,25 @@ const DataTable: React.FC<DataTableProps> = ({
   const totalPages = Math.ceil(filteredData.length / rowsPerPage);
   const startIndex = (currentPage - 1) * rowsPerPage;
   const paginatedData = filteredData.slice(startIndex, startIndex + rowsPerPage);
+
+  const chartData = useMemo(() => {
+    if (!showChart || !chartConfig.labelColumn || !chartConfig.valueColumn) return [];
+    
+    return filteredData.map(row => ({
+      name: String(row[chartConfig.labelColumn] || 'Unnamed'),
+      value: isNaN(Number(row[chartConfig.valueColumn])) ? 0 : Number(row[chartConfig.valueColumn])
+    })).sort((a, b) => b.value - a.value);
+  }, [filteredData, showChart, chartConfig]);
+
+  const generateColors = (count: number) => {
+    const colors = [];
+    for (let i = 0; i < count; i++) {
+      colors.push(`hsl(${(i * 360) / count}, 70%, 50%)`);
+    }
+    return colors;
+  };
+
+  const chartColors = useMemo(() => generateColors(chartData.length), [chartData.length]);
 
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages) {
@@ -181,6 +226,21 @@ const DataTable: React.FC<DataTableProps> = ({
     setShowDataTypes(!showDataTypes);
   };
 
+  const toggleChart = () => {
+    setShowChart(!showChart);
+  };
+
+  const toggleChartType = () => {
+    setChartType(chartType === 'pie' ? 'bar' : 'pie');
+  };
+
+  const handleChartConfigChange = (field: 'labelColumn' | 'valueColumn', value: string) => {
+    setChartConfig(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
   const getTypeColorClass = (type: string) => {
     switch (type) {
       case 'integer':
@@ -192,6 +252,14 @@ const DataTable: React.FC<DataTableProps> = ({
         return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
     }
   };
+
+  const numericColumns = Object.entries(columnInfo)
+    .filter(([_, info]) => info.type === 'integer' || info.type === 'decimal')
+    .map(([col]) => col);
+
+  const textColumns = Object.entries(columnInfo)
+    .filter(([_, info]) => info.type !== 'integer' && info.type !== 'decimal')
+    .map(([col]) => col);
 
   if (!data || data.length === 0) {
     return (
@@ -232,6 +300,16 @@ const DataTable: React.FC<DataTableProps> = ({
             <Button
               variant="outline"
               size="sm"
+              onClick={toggleChart}
+              className={showChart ? "bg-primary/10" : ""}
+            >
+              <BarChart2 className="mr-2 h-4 w-4" />
+              {showChart ? "Hide Chart" : "Show Chart"}
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleDownload}
               className="hover-scale"
             >
@@ -249,6 +327,94 @@ const DataTable: React.FC<DataTableProps> = ({
           columnInfo={columnInfo}
         />
       </div>
+
+      {showChart && chartData.length > 0 && (
+        <div className="mb-6 p-4 border rounded-lg bg-card/40 backdrop-blur-sm">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+            <h3 className="text-lg font-medium">Data Visualization</h3>
+            
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleChartType}
+              >
+                Switch to {chartType === 'pie' ? 'Bar' : 'Pie'} Chart
+              </Button>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+            <div className="sm:col-span-2">
+              <label className="text-sm font-medium mb-1 block">Label Column</label>
+              <select 
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={chartConfig.labelColumn}
+                onChange={e => handleChartConfigChange('labelColumn', e.target.value)}
+              >
+                <option value="">Select label column</option>
+                {textColumns.map(col => (
+                  <option key={col} value={col}>{col}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium mb-1 block">Value Column</label>
+              <select 
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={chartConfig.valueColumn}
+                onChange={e => handleChartConfigChange('valueColumn', e.target.value)}
+              >
+                <option value="">Select value column</option>
+                {numericColumns.map(col => (
+                  <option key={col} value={col}>{col}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          
+          <div className="w-full" style={{ height: '300px' }}>
+            {chartType === 'pie' ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={chartData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                    labelLine={true}
+                  >
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip formatter={(value) => `${value.toFixed(2)}`} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <RechartsTooltip formatter={(value) => `${value.toFixed(2)}`} />
+                  <Bar dataKey="value">
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
+                    ))}
+                  </Bar>
+                  <Legend />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className={`overflow-auto rounded-lg border`} style={{ maxHeight }}>
         <Table>
