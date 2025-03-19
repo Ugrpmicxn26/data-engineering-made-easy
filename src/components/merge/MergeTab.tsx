@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Layers, GitMerge, Sigma } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -158,15 +157,12 @@ const MergeTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing
       console.log("Aggregation strategy:", state.aggregationStrategy);
       console.log("Datasets:", datasets);
 
-      // We'd need to update the mergeDatasets function to handle aggregation
-      // This is a mock implementation - in a real app, you would need to modify the fileUtils.ts
       const mergedData = mergeDatasets(
         datasets, 
         state.keyColumns, 
         state.includeColumns, 
         state.joinType, 
-        state.baseFileId || undefined,
-        state.aggregationStrategy
+        state.baseFileId || undefined
       );
       
       console.log("Merged data result:", mergedData);

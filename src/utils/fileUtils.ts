@@ -112,7 +112,8 @@ export const mergeDatasets = (
   keyColumns: Record<string, string[]>,
   includeColumns: Record<string, string[]>,
   joinType: JoinType = "inner",
-  baseFileId?: string
+  baseFileId?: string,
+  aggregationStrategy: string = "first"
 ): any[] => {
   const fileIds = Object.keys(datasets);
   if (fileIds.length < 2) return [];
@@ -140,7 +141,7 @@ export const mergeDatasets = (
   const result: any[] = [];
   
   // Create maps for each dataset keyed by the composite key
-  const dataMaps: Record<string, Map<string, any>> = {};
+  const dataMaps: Record<string, Map<string, any[]>> = {};
   
   // Create a set to track all composite keys from all datasets if full join
   const allKeys = new Set<string>();
@@ -149,7 +150,7 @@ export const mergeDatasets = (
   fileIds.forEach(fileId => {
     const data = datasets[fileId];
     const keyColumnsForFile = keyColumns[fileId];
-    const dataMap = new Map<string, any>();
+    const dataMap = new Map<string, any[]>();
     
     data.forEach(row => {
       // Create composite key from key columns
@@ -157,7 +158,12 @@ export const mergeDatasets = (
       const compositeKey = keyValues.join('|');
       
       if (compositeKey) {
-        dataMap.set(compositeKey, row);
+        // Store all rows with the same key for aggregation
+        if (!dataMap.has(compositeKey)) {
+          dataMap.set(compositeKey, []);
+        }
+        dataMap.get(compositeKey)?.push(row);
+        
         if (joinType === "full") {
           allKeys.add(compositeKey);
         }
@@ -166,6 +172,38 @@ export const mergeDatasets = (
     
     dataMaps[fileId] = dataMap;
   });
+  
+  // Helper function to aggregate values based on aggregation strategy
+  const aggregateValues = (rows: any[], column: string, strategy: string): any => {
+    if (!rows || rows.length === 0) return null;
+    if (rows.length === 1 || strategy === 'first') return rows[0][column];
+    
+    const values = rows.map(row => row[column]).filter(v => v !== null && v !== undefined);
+    if (values.length === 0) return null;
+    
+    switch (strategy) {
+      case 'commaSeparated': 
+        return values.join(', ');
+      case 'sum':
+        return values.reduce((sum, val) => {
+          const num = Number(val);
+          return sum + (isNaN(num) ? 0 : num);
+        }, 0);
+      case 'avg':
+        const validNumbers = values.map(v => Number(v)).filter(n => !isNaN(n));
+        return validNumbers.length ? validNumbers.reduce((sum, val) => sum + val, 0) / validNumbers.length : null;
+      case 'min':
+        const minVals = values.map(v => Number(v)).filter(n => !isNaN(n));
+        return minVals.length ? Math.min(...minVals) : null;
+      case 'max':
+        const maxVals = values.map(v => Number(v)).filter(n => !isNaN(n));
+        return maxVals.length ? Math.max(...maxVals) : null;
+      case 'count':
+        return values.length;
+      default:
+        return rows[0][column]; // Default to first value
+    }
+  };
   
   // For left join and inner join, iterate through base data
   if (joinType === "inner" || joinType === "left") {
@@ -190,12 +228,12 @@ export const mergeDatasets = (
       for (let i = 1; i < fileIds.length; i++) {
         const fileId = fileIds[i];
         const dataMap = dataMaps[fileId];
-        const matchingRow = dataMap.get(compositeKey);
+        const matchingRows = dataMap.get(compositeKey);
         
-        if (matchingRow) {
-          // Add selected columns from this dataset
+        if (matchingRows && matchingRows.length > 0) {
+          // Add selected columns from this dataset with aggregation
           includeColumns[fileId].forEach(col => {
-            mergedRow[`${fileId}:${col}`] = matchingRow[col];
+            mergedRow[`${fileId}:${col}`] = aggregateValues(matchingRows, col, aggregationStrategy);
           });
         } else {
           foundInAllDatasets = false;
@@ -224,11 +262,11 @@ export const mergeDatasets = (
       // Add data from each file if available
       fileIds.forEach(fileId => {
         const dataMap = dataMaps[fileId];
-        const matchingRow = dataMap.get(compositeKey);
+        const matchingRows = dataMap.get(compositeKey);
         
-        if (matchingRow) {
+        if (matchingRows && matchingRows.length > 0) {
           includeColumns[fileId].forEach(col => {
-            mergedRow[`${fileId}:${col}`] = matchingRow[col];
+            mergedRow[`${fileId}:${col}`] = aggregateValues(matchingRows, col, aggregationStrategy);
           });
         } else {
           includeColumns[fileId].forEach(col => {
