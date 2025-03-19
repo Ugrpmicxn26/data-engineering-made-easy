@@ -24,4 +24,3 @@ const ConfigHeader: React.FC<ConfigHeaderProps> = ({ title, description, icon })
 };
 
 export default ConfigHeader;
-

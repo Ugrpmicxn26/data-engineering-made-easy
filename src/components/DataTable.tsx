@@ -265,7 +265,7 @@ const DataTable: React.FC<DataTableProps> = ({
     if (typeof value === 'number') {
       return value.toFixed(2);
     }
-    return String(value);
+    return String(value || '');
   };
 
   if (!data || data.length === 0) {

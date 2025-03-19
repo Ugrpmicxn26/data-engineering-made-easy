@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { FileData } from "@/utils/fileUtils";
 import { Button } from "@/components/ui/button";
@@ -6,20 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { ArrowDownUp, Check, ChevronRight, Calculator, PieChart } from "lucide-react";
+import { ArrowDownUp, Check, ChevronRight, Database } from "lucide-react";
 import { toast } from "sonner";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import ConfigHeader from "./ConfigHeader";
 import { detectColumnTypes } from "@/utils/fileUtils";
 
@@ -34,13 +23,15 @@ interface AggregationConfig {
   column: string;
   operation: string;
   newColumnName: string;
-  isMarketShare: boolean;
-  marketShareName: string;
 }
 
 type GroupByConfig = {
   groupByColumns: string[];
   aggregations: AggregationConfig[];
+  whereClause: string;
+  orderByColumn: string;
+  orderDirection: 'asc' | 'desc';
+  limit: number;
 }
 
 const GroupByTab: React.FC<GroupByTabProps> = ({
@@ -55,10 +46,12 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
     aggregations: [{
       column: "",
       operation: "sum",
-      newColumnName: "",
-      isMarketShare: false,
-      marketShareName: ""
-    }]
+      newColumnName: ""
+    }],
+    whereClause: "",
+    orderByColumn: "",
+    orderDirection: 'desc',
+    limit: 0
   });
   const [columnTypes, setColumnTypes] = useState<{[key: string]: string}>({});
   const [saveAsMergedFile, setSaveAsMergedFile] = useState(true);
@@ -95,7 +88,7 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
     });
   };
 
-  const handleAggregationChange = (index: number, field: keyof AggregationConfig, value: string | boolean) => {
+  const handleAggregationChange = (index: number, field: keyof AggregationConfig, value: string) => {
     setConfig(prev => {
       const newAggregations = [...prev.aggregations];
       newAggregations[index] = {
@@ -103,19 +96,11 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
         [field]: value
       };
 
-      if (field === 'column' || field === 'operation') {
-        if (!newAggregations[index].newColumnName) {
-          const column = field === 'column' ? value as string : newAggregations[index].column;
-          const operation = field === 'operation' ? value as string : newAggregations[index].operation;
-          if (column && operation) {
-            newAggregations[index].newColumnName = `${operation}_${column}`;
-          }
-        }
-      }
-
-      if (field === 'isMarketShare' && value === true) {
-        if (!newAggregations[index].marketShareName) {
-          newAggregations[index].marketShareName = `${newAggregations[index].newColumnName}_market_share`;
+      if ((field === 'column' || field === 'operation') && !newAggregations[index].newColumnName) {
+        const column = field === 'column' ? value : newAggregations[index].column;
+        const operation = field === 'operation' ? value : newAggregations[index].operation;
+        if (column && operation) {
+          newAggregations[index].newColumnName = `${operation}_${column}`;
         }
       }
 
@@ -134,9 +119,7 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
         {
           column: "",
           operation: "sum",
-          newColumnName: "",
-          isMarketShare: false,
-          marketShareName: ""
+          newColumnName: ""
         }
       ]
     }));
@@ -147,6 +130,37 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
       ...prev,
       aggregations: prev.aggregations.filter((_, i) => i !== index)
     }));
+  };
+
+  // Helper function to evaluate a simple WHERE clause
+  const evaluateWhereClause = (row: any, whereClause: string): boolean => {
+    if (!whereClause.trim()) return true;
+    
+    try {
+      // Replace column names with actual values for evaluation
+      let condition = whereClause;
+      Object.keys(row).forEach(column => {
+        const regex = new RegExp(`\\b${column}\\b`, 'g');
+        const value = typeof row[column] === 'string' 
+          ? `"${row[column]}"` 
+          : row[column];
+        condition = condition.replace(regex, value);
+      });
+      
+      // Handle common SQL operators
+      condition = condition.replace(/=/g, '===');
+      condition = condition.replace(/<>/g, '!==');
+      condition = condition.replace(/AND/gi, '&&');
+      condition = condition.replace(/OR/gi, '||');
+      condition = condition.replace(/NULL/gi, 'null');
+      condition = condition.replace(/LIKE/gi, '.includes');
+      
+      // eslint-disable-next-line no-new-func
+      return Function(`return ${condition}`)();
+    } catch (error) {
+      console.error("Error evaluating WHERE clause:", error);
+      return true; // Include the row if there's an error
+    }
   };
 
   const performGroupBy = () => {
@@ -168,9 +182,15 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
     const { data } = selectedFile;
     
     try {
+      // Filter data with WHERE clause if provided
+      const filteredData = config.whereClause
+        ? data.filter(row => evaluateWhereClause(row, config.whereClause))
+        : data;
+      
+      // Group the data
       const groupedData: {[key: string]: any[]} = {};
       
-      data.forEach(row => {
+      filteredData.forEach(row => {
         const groupKey = config.groupByColumns.map(col => String(row[col] || '')).join('|');
         if (!groupedData[groupKey]) {
           groupedData[groupKey] = [];
@@ -178,7 +198,8 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
         groupedData[groupKey].push(row);
       });
       
-      const result = Object.entries(groupedData).map(([key, rows]) => {
+      // Apply aggregations
+      let result = Object.entries(groupedData).map(([key, rows]) => {
         const newRow: {[key: string]: any} = {};
         
         const keyParts = key.split('|');
@@ -213,25 +234,47 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
           }
         });
         
+        // Calculate market share percentage for each aggregation
+        config.aggregations.forEach(agg => {
+          const marketShareCol = `${agg.newColumnName}_share_pct`;
+          const totalSum = Object.values(groupedData)
+            .flatMap(rows => rows.map(row => isNaN(Number(row[agg.column])) ? 0 : Number(row[agg.column])))
+            .reduce((sum, val) => sum + (val || 0), 0);
+          
+          if (totalSum > 0) {
+            const groupSum = values => values.reduce((sum, val) => sum + (val || 0), 0);
+            const rowSum = groupSum(rows.map(row => isNaN(Number(row[agg.column])) ? 0 : Number(row[agg.column])));
+            newRow[marketShareCol] = (rowSum / totalSum) * 100;
+          } else {
+            newRow[marketShareCol] = 0;
+          }
+        });
+        
         return newRow;
       });
       
-      const totals: {[key: string]: number} = {};
-      config.aggregations.forEach(agg => {
-        if (agg.isMarketShare) {
-          totals[agg.newColumnName] = result.reduce((sum, row) => sum + (Number(row[agg.newColumnName]) || 0), 0);
-        }
-      });
-      
-      result.forEach(row => {
-        config.aggregations.forEach(agg => {
-          if (agg.isMarketShare && totals[agg.newColumnName] > 0) {
-            const value = Number(row[agg.newColumnName]) || 0;
-            row[agg.marketShareName] = (value / totals[agg.newColumnName]) * 100;
+      // Apply ORDER BY
+      if (config.orderByColumn) {
+        result.sort((a, b) => {
+          const aVal = a[config.orderByColumn];
+          const bVal = b[config.orderByColumn];
+          
+          if (typeof aVal === 'number' && typeof bVal === 'number') {
+            return config.orderDirection === 'asc' ? aVal - bVal : bVal - aVal;
           }
+          
+          const aStr = String(aVal || '');
+          const bStr = String(bVal || '');
+          return config.orderDirection === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
         });
-      });
+      }
+      
+      // Apply LIMIT
+      if (config.limit > 0) {
+        result = result.slice(0, config.limit);
+      }
 
+      // Save as a new file or return results
       if (saveAsMergedFile) {
         const newFileName = `grouped_${selectedFile.name}`;
         const newFileId = `grouped-${Date.now()}`;
@@ -268,9 +311,9 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
   return (
     <div className="space-y-6">
       <ConfigHeader
-        title="Group & Market Share Analysis"
-        description="Group your data by specific columns and calculate aggregations like sum, average, etc. and compute market share percentages."
-        icon={<PieChart className="h-5 w-5" />}
+        title="SQL-like Group By"
+        description="Group your data like SQL: SELECT columns, GROUP BY, aggregate functions, WHERE, ORDER BY, and LIMIT."
+        icon={<Database className="h-5 w-5" />}
       />
 
       {selectedFiles.length > 1 && (
@@ -308,7 +351,7 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
             <Separator />
             
             <div className="space-y-2">
-              <Label className="text-base font-medium">Group By Columns</Label>
+              <Label className="text-base font-medium">GROUP BY Columns</Label>
               <p className="text-sm text-muted-foreground mb-2">
                 Select columns to group your data by
               </p>
@@ -337,7 +380,7 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
             
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label className="text-base font-medium">Aggregations</Label>
+                <Label className="text-base font-medium">Aggregations (SELECT)</Label>
                 <Button
                   type="button"
                   variant="outline"
@@ -350,7 +393,7 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
               </div>
               
               <p className="text-sm text-muted-foreground">
-                Define how to aggregate your data and calculate market share
+                Define how to aggregate your data (SUM, AVG, COUNT, etc.)
               </p>
 
               {numericColumns.length === 0 && (
@@ -378,7 +421,7 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
                       )}
                     </div>
                     
-                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
                       <div className="space-y-2">
                         <Label>Numeric Column</Label>
                         <Select
@@ -410,11 +453,11 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="sum">Sum</SelectItem>
-                            <SelectItem value="avg">Average</SelectItem>
-                            <SelectItem value="min">Minimum</SelectItem>
-                            <SelectItem value="max">Maximum</SelectItem>
-                            <SelectItem value="count">Count</SelectItem>
+                            <SelectItem value="sum">SUM</SelectItem>
+                            <SelectItem value="avg">AVG</SelectItem>
+                            <SelectItem value="min">MIN</SelectItem>
+                            <SelectItem value="max">MAX</SelectItem>
+                            <SelectItem value="count">COUNT</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -428,55 +471,108 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
                           disabled={isProcessing}
                         />
                       </div>
-                      
-                      <div className="space-y-2 flex items-end">
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`market-share-${index}`}
-                            checked={agg.isMarketShare}
-                            onCheckedChange={(checked) => handleAggregationChange(index, 'isMarketShare', !!checked)}
-                            disabled={isProcessing || !agg.column}
-                          />
-                          <Label
-                            htmlFor={`market-share-${index}`}
-                            className="font-normal cursor-pointer"
-                          >
-                            Calculate Market Share %
-                          </Label>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 p-0">
-                                  <Calculator className="h-4 w-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p className="max-w-xs text-xs">
-                                  Market share will calculate each row's percentage of the total sum across all groups.
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                      </div>
-                      
-                      {agg.isMarketShare && (
-                        <div className="space-y-2 sm:col-span-2">
-                          <Label>Market Share Column Name</Label>
-                          <Input
-                            value={agg.marketShareName}
-                            onChange={(e) => handleAggregationChange(index, 'marketShareName', e.target.value)}
-                            placeholder={`${agg.newColumnName}_market_share`}
-                            disabled={isProcessing}
-                          />
-                        </div>
-                      )}
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
+            <Separator />
+            
+            <div className="space-y-4">
+              <Label className="text-base font-medium">SQL Clauses</Label>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>WHERE Clause</Label>
+                  <Input
+                    value={config.whereClause}
+                    onChange={(e) => setConfig(prev => ({ ...prev, whereClause: e.target.value }))}
+                    placeholder="e.g. column1 > 10 AND column2 = 'value'"
+                    disabled={isProcessing}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Filter rows before grouping (supports =, &gt;, &lt;, &lt;&gt;, AND, OR)
+                  </p>
+                </div>
+                
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>ORDER BY</Label>
+                    <Select
+                      value={config.orderByColumn}
+                      onValueChange={(value) => setConfig(prev => ({ ...prev, orderByColumn: value }))}
+                      disabled={isProcessing}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select column to sort by" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">None</SelectItem>
+                        {config.groupByColumns.map(column => (
+                          <SelectItem key={column} value={column}>{column}</SelectItem>
+                        ))}
+                        {config.aggregations.map(agg => (
+                          <SelectItem key={agg.newColumnName} value={agg.newColumnName}>
+                            {agg.newColumnName}
+                          </SelectItem>
+                        ))}
+                        {config.aggregations.map(agg => (
+                          <SelectItem key={`${agg.newColumnName}_share_pct`} value={`${agg.newColumnName}_share_pct`}>
+                            {agg.newColumnName}_share_pct
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    {config.orderByColumn && (
+                      <div className="flex items-center space-x-4 mt-2">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="order-asc"
+                            checked={config.orderDirection === 'asc'}
+                            onCheckedChange={(checked) => 
+                              setConfig(prev => ({ ...prev, orderDirection: checked ? 'asc' : 'desc' }))
+                            }
+                          />
+                          <Label htmlFor="order-asc" className="text-sm">Ascending</Label>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="order-desc"
+                            checked={config.orderDirection === 'desc'}
+                            onCheckedChange={(checked) => 
+                              setConfig(prev => ({ ...prev, orderDirection: checked ? 'desc' : 'asc' }))
+                            }
+                          />
+                          <Label htmlFor="order-desc" className="text-sm">Descending</Label>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>LIMIT</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={config.limit === 0 ? "" : config.limit}
+                      onChange={(e) => {
+                        const value = e.target.value === "" ? 0 : parseInt(e.target.value);
+                        setConfig(prev => ({ ...prev, limit: value }));
+                      }}
+                      placeholder="Limit number of results"
+                      disabled={isProcessing}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Leave empty for no limit
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
             <Separator />
 
             <div className="space-y-4">
@@ -506,7 +602,7 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
                 }
                 className="w-full"
               >
-                {isProcessing ? "Processing..." : "Group Data & Calculate"}
+                {isProcessing ? "Processing..." : "Execute Query"}
               </Button>
             </div>
           </>
