@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { FileData } from "@/utils/fileUtils";
 import { Button } from "@/components/ui/button";
@@ -7,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { ArrowDownUp, Check, ChevronRight, Calculator } from "lucide-react";
+import { ArrowDownUp, Check, ChevronRight, Calculator, PieChart } from "lucide-react";
 import { toast } from "sonner";
 import {
   Tooltip,
@@ -68,7 +67,6 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
     if (selectedFiles.length > 0) {
       setSelectedFile(selectedFiles[0]);
 
-      // Detect column types
       if (selectedFiles[0].data && selectedFiles[0].data.length > 0) {
         const detectedTypes = detectColumnTypes(selectedFiles[0].data);
         const types: {[key: string]: string} = {};
@@ -84,13 +82,11 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
     setConfig(prev => {
       const newGroupByColumns = [...prev.groupByColumns];
       if (newGroupByColumns.includes(column)) {
-        // Remove column
         return {
           ...prev,
           groupByColumns: newGroupByColumns.filter(col => col !== column)
         };
       } else {
-        // Add column
         return {
           ...prev,
           groupByColumns: [...newGroupByColumns, column]
@@ -107,7 +103,6 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
         [field]: value
       };
 
-      // Auto-generate column name if empty
       if (field === 'column' || field === 'operation') {
         if (!newAggregations[index].newColumnName) {
           const column = field === 'column' ? value as string : newAggregations[index].column;
@@ -118,7 +113,6 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
         }
       }
 
-      // Auto-generate market share name if empty
       if (field === 'isMarketShare' && value === true) {
         if (!newAggregations[index].marketShareName) {
           newAggregations[index].marketShareName = `${newAggregations[index].newColumnName}_market_share`;
@@ -174,10 +168,8 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
     const { data } = selectedFile;
     
     try {
-      // Group the data
       const groupedData: {[key: string]: any[]} = {};
       
-      // Create groups
       data.forEach(row => {
         const groupKey = config.groupByColumns.map(col => String(row[col] || '')).join('|');
         if (!groupedData[groupKey]) {
@@ -186,17 +178,14 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
         groupedData[groupKey].push(row);
       });
       
-      // Calculate aggregations
       const result = Object.entries(groupedData).map(([key, rows]) => {
         const newRow: {[key: string]: any} = {};
         
-        // Add group by columns
         const keyParts = key.split('|');
         config.groupByColumns.forEach((col, index) => {
           newRow[col] = keyParts[index];
         });
         
-        // Calculate aggregations
         config.aggregations.forEach(agg => {
           const values = rows.map(row => {
             const val = row[agg.column];
@@ -227,7 +216,6 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
         return newRow;
       });
       
-      // Calculate total sums for market share calculation
       const totals: {[key: string]: number} = {};
       config.aggregations.forEach(agg => {
         if (agg.isMarketShare) {
@@ -235,7 +223,6 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
         }
       });
       
-      // Calculate market share percentages
       result.forEach(row => {
         config.aggregations.forEach(agg => {
           if (agg.isMarketShare && totals[agg.newColumnName] > 0) {
@@ -245,7 +232,6 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
         });
       });
 
-      // Create a new file with the result
       if (saveAsMergedFile) {
         const newFileName = `grouped_${selectedFile.name}`;
         const newFileId = `grouped-${Date.now()}`;
@@ -275,7 +261,6 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
     }
   };
 
-  // Calculate which columns are numeric
   const numericColumns = selectedFile?.columns.filter(col => 
     columnTypes[col] === 'integer' || columnTypes[col] === 'decimal'
   ) || [];

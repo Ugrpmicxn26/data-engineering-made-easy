@@ -261,6 +261,13 @@ const DataTable: React.FC<DataTableProps> = ({
     .filter(([_, info]) => info.type !== 'integer' && info.type !== 'decimal')
     .map(([col]) => col);
 
+  const formatChartValue = (value: any): string => {
+    if (typeof value === 'number') {
+      return value.toFixed(2);
+    }
+    return String(value);
+  };
+
   if (!data || data.length === 0) {
     return (
       <div className="text-center p-8 bg-muted/30 rounded-lg">
@@ -392,7 +399,7 @@ const DataTable: React.FC<DataTableProps> = ({
                       <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
                     ))}
                   </Pie>
-                  <RechartsTooltip formatter={(value) => `${value.toFixed(2)}`} />
+                  <RechartsTooltip formatter={(value) => formatChartValue(value)} />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
@@ -402,7 +409,7 @@ const DataTable: React.FC<DataTableProps> = ({
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis />
-                  <RechartsTooltip formatter={(value) => `${value.toFixed(2)}`} />
+                  <RechartsTooltip formatter={(value) => formatChartValue(value)} />
                   <Bar dataKey="value">
                     {chartData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
