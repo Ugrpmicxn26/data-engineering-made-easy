@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { Database } from "lucide-react";
+import { GroupIcon, Database } from "lucide-react";
 import { toast } from "sonner";
 import ConfigHeader from "./ConfigHeader";
 import { detectColumnTypes } from "@/utils/fileUtils";
@@ -268,7 +268,7 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
   return (
     <div className="space-y-6">
       <ConfigHeader
-        title="SQL-like Group By"
+        title="SQL Group By"
         description="Group your data by columns and apply aggregations like SQL GROUP BY"
         icon={<Database className="h-5 w-5" />}
       />
@@ -470,9 +470,11 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
                           <SelectItem key={column} value={column}>{column}</SelectItem>
                         ))}
                         {aggregations.map(agg => (
-                          <SelectItem key={agg.newColumnName} value={agg.newColumnName}>
-                            {agg.newColumnName}
-                          </SelectItem>
+                          agg.newColumnName ? (
+                            <SelectItem key={agg.newColumnName} value={agg.newColumnName}>
+                              {agg.newColumnName}
+                            </SelectItem>
+                          ) : null
                         ))}
                       </SelectContent>
                     </Select>

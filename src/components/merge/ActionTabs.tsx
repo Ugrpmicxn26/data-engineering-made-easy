@@ -11,7 +11,7 @@ import {
   Replace,
   ChevronLeft,
   ChevronRight,
-  PieChart
+  GroupIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -78,8 +78,8 @@ const ActionTabs: React.FC<ActionTabsProps> = ({
     },
     {
       type: ACTION_TYPES.GROUP_BY,
-      label: "Group & Market Share",
-      icon: PieChart
+      label: "Group By",
+      icon: GroupIcon
     }
   ];
 
