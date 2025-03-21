@@ -261,11 +261,28 @@ const DataTable: React.FC<DataTableProps> = ({
     .filter(([_, info]) => info.type !== 'integer' && info.type !== 'decimal')
     .map(([col]) => col);
 
-  const formatChartValue = (value: any): string => {
-    if (typeof value === 'number') {
-      return value.toFixed(2);
+  const formatChartValue = (value: any, formatType = 'number'): string => {
+    if (value === undefined || value === null) return '-';
+    
+    if (formatType === 'number') {
+      const numValue = typeof value === 'string' ? parseFloat(value) : value;
+      if (isNaN(numValue)) return String(value);
+      
+      return typeof numValue === 'number' && !isNaN(numValue) 
+        ? numValue.toFixed(2) 
+        : String(value);
     }
-    return String(value || '');
+    
+    if (formatType === 'percent') {
+      const numValue = typeof value === 'string' ? parseFloat(value) : value;
+      if (isNaN(numValue)) return String(value);
+      
+      return typeof numValue === 'number' && !isNaN(numValue) 
+        ? `${numValue.toFixed(2)}%` 
+        : String(value);
+    }
+    
+    return String(value);
   };
 
   if (!data || data.length === 0) {

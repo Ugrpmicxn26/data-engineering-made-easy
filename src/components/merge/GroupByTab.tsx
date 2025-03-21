@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { FileData } from "@/utils/fileUtils";
 import { Button } from "@/components/ui/button";
@@ -6,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { ArrowDownUp, Check, ChevronRight, Database, PieChart } from "lucide-react";
+import { Database } from "lucide-react";
 import { toast } from "sonner";
 import ConfigHeader from "./ConfigHeader";
 import { detectColumnTypes } from "@/utils/fileUtils";
@@ -24,15 +25,6 @@ interface AggregationConfig {
   newColumnName: string;
 }
 
-type GroupByConfig = {
-  groupByColumns: string[];
-  aggregations: AggregationConfig[];
-  whereClause: string;
-  orderByColumn: string;
-  orderDirection: 'asc' | 'desc';
-  limit: number;
-}
-
 const GroupByTab: React.FC<GroupByTabProps> = ({
   files,
   selectedFiles,
@@ -40,61 +32,54 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
   onComplete,
 }) => {
   const [selectedFile, setSelectedFile] = useState<FileData | null>(null);
-  const [config, setConfig] = useState<GroupByConfig>({
-    groupByColumns: [],
-    aggregations: [{
-      column: "",
-      operation: "sum",
-      newColumnName: ""
-    }],
-    whereClause: "",
-    orderByColumn: "",
-    orderDirection: 'desc',
-    limit: 0
-  });
+  const [groupByColumns, setGroupByColumns] = useState<string[]>([]);
+  const [aggregations, setAggregations] = useState<AggregationConfig[]>([{
+    column: "",
+    operation: "sum",
+    newColumnName: ""
+  }]);
+  const [whereClause, setWhereClause] = useState("");
+  const [orderByColumn, setOrderByColumn] = useState("");
+  const [orderDirection, setOrderDirection] = useState<"asc" | "desc">("desc");
+  const [limit, setLimit] = useState<number>(0);
+  const [saveAsFile, setSaveAsFile] = useState(true);
   const [columnTypes, setColumnTypes] = useState<{[key: string]: string}>({});
-  const [saveAsMergedFile, setSaveAsMergedFile] = useState(true);
 
+  // Initialize with first selected file
   useEffect(() => {
     if (selectedFiles.length > 0) {
       setSelectedFile(selectedFiles[0]);
-
+      
       if (selectedFiles[0].data && selectedFiles[0].data.length > 0) {
-        const detectedTypes = detectColumnTypes(selectedFiles[0].data);
-        const types: {[key: string]: string} = {};
-        Object.keys(detectedTypes).forEach(col => {
-          types[col] = detectedTypes[col].type;
+        const types = detectColumnTypes(selectedFiles[0].data);
+        const columnTypeMap: {[key: string]: string} = {};
+        Object.keys(types).forEach(col => {
+          columnTypeMap[col] = types[col].type;
         });
-        setColumnTypes(types);
+        setColumnTypes(columnTypeMap);
       }
     }
   }, [selectedFiles]);
 
-  const handleGroupByChange = (column: string) => {
-    setConfig(prev => {
-      const newGroupByColumns = [...prev.groupByColumns];
-      if (newGroupByColumns.includes(column)) {
-        return {
-          ...prev,
-          groupByColumns: newGroupByColumns.filter(col => col !== column)
-        };
+  const handleGroupByColumnToggle = (column: string) => {
+    setGroupByColumns(prev => {
+      if (prev.includes(column)) {
+        return prev.filter(col => col !== column);
       } else {
-        return {
-          ...prev,
-          groupByColumns: [...newGroupByColumns, column]
-        };
+        return [...prev, column];
       }
     });
   };
 
   const handleAggregationChange = (index: number, field: keyof AggregationConfig, value: string) => {
-    setConfig(prev => {
-      const newAggregations = [...prev.aggregations];
+    setAggregations(prev => {
+      const newAggregations = [...prev];
       newAggregations[index] = {
         ...newAggregations[index],
         [field]: value
       };
-
+      
+      // Auto-generate new column name if empty
       if ((field === 'column' || field === 'operation') && !newAggregations[index].newColumnName) {
         const column = field === 'column' ? value : newAggregations[index].column;
         const operation = field === 'operation' ? value : newAggregations[index].operation;
@@ -102,40 +87,33 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
           newAggregations[index].newColumnName = `${operation}_${column}`;
         }
       }
-
-      return {
-        ...prev,
-        aggregations: newAggregations
-      };
+      
+      return newAggregations;
     });
   };
 
   const addAggregation = () => {
-    setConfig(prev => ({
+    setAggregations(prev => [
       ...prev,
-      aggregations: [
-        ...prev.aggregations,
-        {
-          column: "",
-          operation: "sum",
-          newColumnName: ""
-        }
-      ]
-    }));
+      {
+        column: "",
+        operation: "sum",
+        newColumnName: ""
+      }
+    ]);
   };
 
   const removeAggregation = (index: number) => {
-    setConfig(prev => ({
-      ...prev,
-      aggregations: prev.aggregations.filter((_, i) => i !== index)
-    }));
+    setAggregations(prev => prev.filter((_, i) => i !== index));
   };
 
-  const evaluateWhereClause = (row: any, whereClause: string): boolean => {
-    if (!whereClause.trim()) return true;
+  const evaluateWhereClause = (row: any, clause: string): boolean => {
+    if (!clause.trim()) return true;
     
     try {
-      let condition = whereClause;
+      let condition = clause;
+      
+      // Replace column references with actual values
       Object.keys(row).forEach(column => {
         const regex = new RegExp(`\\b${column}\\b`, 'g');
         const value = typeof row[column] === 'string' 
@@ -144,12 +122,12 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
         condition = condition.replace(regex, value);
       });
       
+      // Handle SQL operators
       condition = condition.replace(/=/g, '===');
       condition = condition.replace(/<>/g, '!==');
       condition = condition.replace(/AND/gi, '&&');
       condition = condition.replace(/OR/gi, '||');
       condition = condition.replace(/NULL/gi, 'null');
-      condition = condition.replace(/LIKE/gi, '.includes');
       
       return Function(`return ${condition}`)();
     } catch (error) {
@@ -164,42 +142,45 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
       return;
     }
 
-    if (config.groupByColumns.length === 0) {
+    if (groupByColumns.length === 0) {
       toast.error("Please select at least one column to group by");
       return;
     }
 
-    if (config.aggregations.some(agg => !agg.column || !agg.operation || !agg.newColumnName)) {
+    if (aggregations.some(agg => !agg.column || !agg.operation || !agg.newColumnName)) {
       toast.error("Please fill in all aggregation fields");
       return;
     }
 
-    const { data } = selectedFile;
-    
     try {
-      const filteredData = config.whereClause
-        ? data.filter(row => evaluateWhereClause(row, config.whereClause))
-        : data;
+      // Apply WHERE clause
+      const filteredData = whereClause
+        ? selectedFile.data.filter(row => evaluateWhereClause(row, whereClause))
+        : selectedFile.data;
       
-      const groupedData: {[key: string]: any[]} = {};
+      // Group data
+      const groups: {[key: string]: any[]} = {};
       
       filteredData.forEach(row => {
-        const groupKey = config.groupByColumns.map(col => String(row[col] || '')).join('|');
-        if (!groupedData[groupKey]) {
-          groupedData[groupKey] = [];
+        const groupKey = groupByColumns.map(col => String(row[col] || '')).join('|');
+        if (!groups[groupKey]) {
+          groups[groupKey] = [];
         }
-        groupedData[groupKey].push(row);
+        groups[groupKey].push(row);
       });
       
-      let result = Object.entries(groupedData).map(([key, rows]) => {
+      // Apply aggregations
+      let result = Object.entries(groups).map(([key, rows]) => {
         const newRow: {[key: string]: any} = {};
         
+        // Add group columns
         const keyParts = key.split('|');
-        config.groupByColumns.forEach((col, index) => {
+        groupByColumns.forEach((col, index) => {
           newRow[col] = keyParts[index];
         });
         
-        config.aggregations.forEach(agg => {
+        // Calculate aggregations
+        aggregations.forEach(agg => {
           const values = rows.map(row => {
             const val = row[agg.column];
             return isNaN(Number(val)) ? null : Number(val);
@@ -226,47 +207,34 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
           }
         });
         
-        config.aggregations.forEach(agg => {
-          const marketShareCol = `${agg.newColumnName}_share_pct`;
-          const totalSum = Object.values(groupedData)
-            .flatMap(rows => rows.map(row => isNaN(Number(row[agg.column])) ? 0 : Number(row[agg.column])))
-            .reduce((sum, val) => sum + (val || 0), 0);
-          
-          if (totalSum > 0) {
-            const groupSum = values => values.reduce((sum, val) => sum + (val || 0), 0);
-            const rowSum = groupSum(rows.map(row => isNaN(Number(row[agg.column])) ? 0 : Number(row[agg.column])));
-            newRow[marketShareCol] = (rowSum / totalSum) * 100;
-          } else {
-            newRow[marketShareCol] = 0;
-          }
-        });
-        
         return newRow;
       });
       
-      if (config.orderByColumn) {
+      // Apply ORDER BY
+      if (orderByColumn && orderByColumn !== "none") {
         result.sort((a, b) => {
-          const aVal = a[config.orderByColumn];
-          const bVal = b[config.orderByColumn];
+          const aVal = a[orderByColumn];
+          const bVal = b[orderByColumn];
           
           if (typeof aVal === 'number' && typeof bVal === 'number') {
-            return config.orderDirection === 'asc' ? aVal - bVal : bVal - aVal;
+            return orderDirection === 'asc' ? aVal - bVal : bVal - aVal;
           }
           
           const aStr = String(aVal || '');
           const bStr = String(bVal || '');
-          return config.orderDirection === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
+          return orderDirection === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
         });
       }
       
-      if (config.limit > 0) {
-        result = result.slice(0, config.limit);
+      // Apply LIMIT
+      if (limit > 0) {
+        result = result.slice(0, limit);
       }
-
-      if (saveAsMergedFile) {
+      
+      if (saveAsFile) {
         const newFileName = `grouped_${selectedFile.name}`;
         const newFileId = `grouped-${Date.now()}`;
-        const resultColumns = Object.keys(result[0] || {});
+        const resultColumns = result.length > 0 ? Object.keys(result[0]) : [];
         
         const newFile: FileData = {
           id: newFileId,
@@ -285,13 +253,14 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
         onComplete(result);
       }
       
-      toast.success(`Successfully created ${result.length} groups`);
+      toast.success(`Successfully grouped data into ${result.length} rows`);
     } catch (error) {
       console.error("Error performing group by:", error);
-      toast.error("Failed to process group by operation");
+      toast.error("Failed to group data");
     }
   };
 
+  // Get numeric columns for aggregations
   const numericColumns = selectedFile?.columns.filter(col => 
     columnTypes[col] === 'integer' || columnTypes[col] === 'decimal'
   ) || [];
@@ -300,7 +269,7 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
     <div className="space-y-6">
       <ConfigHeader
         title="SQL-like Group By"
-        description="Group your data like SQL: SELECT columns, GROUP BY, aggregate functions, WHERE, ORDER BY, and LIMIT."
+        description="Group your data by columns and apply aggregations like SQL GROUP BY"
         icon={<Database className="h-5 w-5" />}
       />
 
@@ -349,8 +318,8 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
                   <div key={column} className="flex items-center space-x-2">
                     <Checkbox
                       id={`group-${column}`}
-                      checked={config.groupByColumns.includes(column)}
-                      onCheckedChange={() => handleGroupByChange(column)}
+                      checked={groupByColumns.includes(column)}
+                      onCheckedChange={() => handleGroupByColumnToggle(column)}
                       disabled={isProcessing}
                     />
                     <Label
@@ -391,7 +360,7 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
               )}
 
               <div className="space-y-4">
-                {config.aggregations.map((agg, index) => (
+                {aggregations.map((agg, index) => (
                   <div key={index} className="rounded-md border p-4 space-y-4">
                     <div className="flex justify-between items-center">
                       <h4 className="font-medium">Aggregation {index + 1}</h4>
@@ -474,8 +443,8 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
                 <div className="space-y-2">
                   <Label>WHERE Clause</Label>
                   <Input
-                    value={config.whereClause}
-                    onChange={(e) => setConfig(prev => ({ ...prev, whereClause: e.target.value }))}
+                    value={whereClause}
+                    onChange={(e) => setWhereClause(e.target.value)}
                     placeholder="e.g. column1 > 10 AND column2 = 'value'"
                     disabled={isProcessing}
                   />
@@ -488,8 +457,8 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
                   <div className="space-y-2">
                     <Label>ORDER BY</Label>
                     <Select
-                      value={config.orderByColumn}
-                      onValueChange={(value) => setConfig(prev => ({ ...prev, orderByColumn: value }))}
+                      value={orderByColumn}
+                      onValueChange={setOrderByColumn}
                       disabled={isProcessing}
                     >
                       <SelectTrigger>
@@ -497,30 +466,25 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">None</SelectItem>
-                        {config.groupByColumns.map(column => (
+                        {groupByColumns.map(column => (
                           <SelectItem key={column} value={column}>{column}</SelectItem>
                         ))}
-                        {config.aggregations.map(agg => (
+                        {aggregations.map(agg => (
                           <SelectItem key={agg.newColumnName} value={agg.newColumnName}>
                             {agg.newColumnName}
-                          </SelectItem>
-                        ))}
-                        {config.aggregations.map(agg => (
-                          <SelectItem key={`${agg.newColumnName}_share_pct`} value={`${agg.newColumnName}_share_pct`}>
-                            {agg.newColumnName}_share_pct
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                     
-                    {config.orderByColumn && config.orderByColumn !== "none" && (
+                    {orderByColumn && orderByColumn !== "none" && (
                       <div className="flex items-center space-x-4 mt-2">
                         <div className="flex items-center space-x-2">
                           <Checkbox
                             id="order-asc"
-                            checked={config.orderDirection === 'asc'}
+                            checked={orderDirection === 'asc'}
                             onCheckedChange={(checked) => 
-                              setConfig(prev => ({ ...prev, orderDirection: checked ? 'asc' : 'desc' }))
+                              setOrderDirection(checked ? 'asc' : 'desc')
                             }
                           />
                           <Label htmlFor="order-asc" className="text-sm">Ascending</Label>
@@ -529,9 +493,9 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
                         <div className="flex items-center space-x-2">
                           <Checkbox
                             id="order-desc"
-                            checked={config.orderDirection === 'desc'}
+                            checked={orderDirection === 'desc'}
                             onCheckedChange={(checked) => 
-                              setConfig(prev => ({ ...prev, orderDirection: checked ? 'desc' : 'asc' }))
+                              setOrderDirection(checked ? 'desc' : 'asc')
                             }
                           />
                           <Label htmlFor="order-desc" className="text-sm">Descending</Label>
@@ -545,10 +509,10 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
                     <Input
                       type="number"
                       min="0"
-                      value={config.limit === 0 ? "" : config.limit}
+                      value={limit === 0 ? "" : limit}
                       onChange={(e) => {
                         const value = e.target.value === "" ? 0 : parseInt(e.target.value);
-                        setConfig(prev => ({ ...prev, limit: value }));
+                        setLimit(value);
                       }}
                       placeholder="Limit number of results"
                       disabled={isProcessing}
@@ -567,8 +531,8 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="save-as-file"
-                  checked={saveAsMergedFile}
-                  onCheckedChange={(checked) => setSaveAsMergedFile(!!checked)}
+                  checked={saveAsFile}
+                  onCheckedChange={(checked) => setSaveAsFile(!!checked)}
                   disabled={isProcessing}
                 />
                 <Label
@@ -580,17 +544,17 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
               </div>
 
               <Button
-                type="submit"
+                type="button"
                 onClick={performGroupBy}
                 disabled={
                   isProcessing || 
-                  config.groupByColumns.length === 0 || 
-                  config.aggregations.some(agg => !agg.column || !agg.newColumnName) ||
+                  groupByColumns.length === 0 || 
+                  aggregations.some(agg => !agg.column || !agg.newColumnName) ||
                   numericColumns.length === 0
                 }
                 className="w-full"
               >
-                {isProcessing ? "Processing..." : "Execute Query"}
+                {isProcessing ? "Processing..." : "Execute Group By Query"}
               </Button>
             </div>
           </>
