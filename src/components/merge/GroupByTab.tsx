@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { FileData } from "@/utils/fileUtils";
 import { Button } from "@/components/ui/button";
@@ -7,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { ArrowDownUp, Check, ChevronRight, Database } from "lucide-react";
+import { ArrowDownUp, Check, ChevronRight, Database, PieChart } from "lucide-react";
 import { toast } from "sonner";
 import ConfigHeader from "./ConfigHeader";
 import { detectColumnTypes } from "@/utils/fileUtils";
@@ -132,12 +131,10 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
     }));
   };
 
-  // Helper function to evaluate a simple WHERE clause
   const evaluateWhereClause = (row: any, whereClause: string): boolean => {
     if (!whereClause.trim()) return true;
     
     try {
-      // Replace column names with actual values for evaluation
       let condition = whereClause;
       Object.keys(row).forEach(column => {
         const regex = new RegExp(`\\b${column}\\b`, 'g');
@@ -147,7 +144,6 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
         condition = condition.replace(regex, value);
       });
       
-      // Handle common SQL operators
       condition = condition.replace(/=/g, '===');
       condition = condition.replace(/<>/g, '!==');
       condition = condition.replace(/AND/gi, '&&');
@@ -155,11 +151,10 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
       condition = condition.replace(/NULL/gi, 'null');
       condition = condition.replace(/LIKE/gi, '.includes');
       
-      // eslint-disable-next-line no-new-func
       return Function(`return ${condition}`)();
     } catch (error) {
       console.error("Error evaluating WHERE clause:", error);
-      return true; // Include the row if there's an error
+      return true;
     }
   };
 
@@ -182,12 +177,10 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
     const { data } = selectedFile;
     
     try {
-      // Filter data with WHERE clause if provided
       const filteredData = config.whereClause
         ? data.filter(row => evaluateWhereClause(row, config.whereClause))
         : data;
       
-      // Group the data
       const groupedData: {[key: string]: any[]} = {};
       
       filteredData.forEach(row => {
@@ -198,7 +191,6 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
         groupedData[groupKey].push(row);
       });
       
-      // Apply aggregations
       let result = Object.entries(groupedData).map(([key, rows]) => {
         const newRow: {[key: string]: any} = {};
         
@@ -234,7 +226,6 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
           }
         });
         
-        // Calculate market share percentage for each aggregation
         config.aggregations.forEach(agg => {
           const marketShareCol = `${agg.newColumnName}_share_pct`;
           const totalSum = Object.values(groupedData)
@@ -253,7 +244,6 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
         return newRow;
       });
       
-      // Apply ORDER BY
       if (config.orderByColumn) {
         result.sort((a, b) => {
           const aVal = a[config.orderByColumn];
@@ -269,12 +259,10 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
         });
       }
       
-      // Apply LIMIT
       if (config.limit > 0) {
         result = result.slice(0, config.limit);
       }
 
-      // Save as a new file or return results
       if (saveAsMergedFile) {
         const newFileName = `grouped_${selectedFile.name}`;
         const newFileId = `grouped-${Date.now()}`;
@@ -508,7 +496,7 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
                         <SelectValue placeholder="Select column to sort by" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
                         {config.groupByColumns.map(column => (
                           <SelectItem key={column} value={column}>{column}</SelectItem>
                         ))}
@@ -525,7 +513,7 @@ const GroupByTab: React.FC<GroupByTabProps> = ({
                       </SelectContent>
                     </Select>
                     
-                    {config.orderByColumn && (
+                    {config.orderByColumn && config.orderByColumn !== "none" && (
                       <div className="flex items-center space-x-4 mt-2">
                         <div className="flex items-center space-x-2">
                           <Checkbox
