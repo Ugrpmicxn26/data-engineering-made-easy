@@ -11,7 +11,8 @@ import {
   Replace,
   ChevronLeft,
   ChevronRight,
-  GroupIcon
+  GroupIcon,
+  FileCode
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -31,7 +32,8 @@ export const ACTION_TYPES = {
   TRIM_COLUMNS: "trimColumns",
   PIVOT: "pivot",
   REGEX_TRANSFORM: "regexTransform",
-  GROUP_BY: "groupBy"
+  GROUP_BY: "groupBy",
+  PYTHON: "python"
 };
 
 const ActionTabs: React.FC<ActionTabsProps> = ({ 
@@ -80,6 +82,11 @@ const ActionTabs: React.FC<ActionTabsProps> = ({
       type: ACTION_TYPES.GROUP_BY,
       label: "Group By",
       icon: GroupIcon
+    },
+    {
+      type: ACTION_TYPES.PYTHON,
+      label: "Python Notebook",
+      icon: FileCode
     }
   ];
 

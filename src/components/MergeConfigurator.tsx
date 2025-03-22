@@ -13,6 +13,7 @@ import TrimColumnsTab from "./merge/TrimColumnsTab";
 import PivotTab from "./merge/PivotTab";
 import RegexTransformTab from "./merge/RegexTransformTab";
 import GroupByTab from "./merge/GroupByTab";
+import PythonTab from "./merge/PythonTab";
 import EmptyFilesMessage from "./merge/EmptyFilesMessage";
 
 interface MergeConfiguratorProps {
@@ -121,6 +122,15 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
 
         {currentAction === ACTION_TYPES.GROUP_BY && (
           <GroupByTab 
+            files={files} 
+            selectedFiles={selectedFiles} 
+            isProcessing={isProcessing} 
+            onComplete={handleComplete} 
+          />
+        )}
+
+        {currentAction === ACTION_TYPES.PYTHON && (
+          <PythonTab 
             files={files} 
             selectedFiles={selectedFiles} 
             isProcessing={isProcessing} 
