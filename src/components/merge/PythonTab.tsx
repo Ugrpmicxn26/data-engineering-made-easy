@@ -29,17 +29,18 @@ const PythonTab: React.FC<PythonTabProps> = ({
   const [outputData, setOutputData] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [outputName, setOutputName] = useState<string>("");
 
   // Default Python code template
   const defaultPythonCode = `# Python Notebook
-# Available packages: pandas, numpy, matplotlib, seaborn, scikit-learn
+# Available packages: pandas, numpy, matplotlib, scikit-learn
 # The DataFrame is already loaded as 'df'
 
 import pandas as pd
 import numpy as np
 
 # Display first 5 rows
-df.head()
+print(df.head())
 
 # Basic info about the DataFrame
 print(df.info())
@@ -54,7 +55,8 @@ print(df.describe())
 # Example: Group by and aggregate
 # grouped_df = df.groupby('column_name').agg({'other_column': 'mean'})
 
-# Return the final DataFrame to update the preview
+# The last DataFrame variable in your code will be returned as the result
+# This will be displayed in the preview panel and can be saved
 df
 `;
 
@@ -73,19 +75,22 @@ df
     setError(null);
   }, [selectedFileId, selectedFiles]);
 
-  // Update preview data when file selection changes
+  // Update preview data and suggested output name when file selection changes
   useEffect(() => {
     if (selectedFileId) {
       const file = files.find(f => f.id === selectedFileId);
       if (file && file.data) {
         setOutputData(file.data.slice(0, 100)); // Show only first 100 rows initially
+        
+        // Set default output name based on the selected file
+        const baseName = file.name.replace(/\.[^/.]+$/, "");
+        setOutputName(`${baseName}-python.csv`);
       }
     }
   }, [selectedFileId, files]);
 
   const handleExecutePython = () => {
     // Since we can't actually run Python in the browser, we'll simulate it
-    // In a real implementation, this would need to use a backend service
     setLoading(true);
     setError(null);
     setPythonOutput("");
@@ -100,103 +105,148 @@ df
     setTimeout(() => {
       try {
         // Simulate Python execution with JavaScript
-        let outputText = "# Python Output (Simulated)\n\n";
+        let outputText = "";
         let resultData = [...file.data];
         
         // Parse the Python code and perform simple operations
         if (pythonCode.includes("df.head()")) {
-          outputText += "# First 5 rows of the DataFrame:\n";
-          outputText += JSON.stringify(resultData.slice(0, 5), null, 2) + "\n\n";
+          const headData = resultData.slice(0, 5);
+          outputText += "# DataFrame.head()\n";
+          outputText += JSON.stringify(headData, null, 2) + "\n\n";
         }
         
         if (pythonCode.includes("df.info()")) {
-          outputText += "# DataFrame Info:\n";
           const columns = Object.keys(resultData[0] || {});
+          outputText += "# DataFrame.info()\n";
+          outputText += `<class 'pandas.core.frame.DataFrame'>\n`;
           outputText += `RangeIndex: ${resultData.length} entries, 0 to ${resultData.length - 1}\n`;
           outputText += `Data columns (total ${columns.length}):\n`;
           columns.forEach((col, i) => {
-            outputText += ` #   Column: ${col}\n`;
+            outputText += ` #   ${i} ${col}  ${resultData.length} non-null\n`;
           });
-          outputText += "\n";
+          outputText += `dtypes: object(${columns.length})\n\n`;
         }
         
         if (pythonCode.includes("df.describe()")) {
-          outputText += "# DataFrame Statistics:\n";
           const columns = Object.keys(resultData[0] || {});
-          const stats = {
-            count: {},
-            mean: {},
-            std: {},
-            min: {},
-            "25%": {},
-            "50%": {},
-            "75%": {},
-            max: {},
-          };
+          outputText += "# DataFrame.describe()\n";
           
-          columns.forEach(col => {
-            const values = resultData.map(row => row[col]).filter(val => !isNaN(Number(val))).map(Number);
-            if (values.length > 0) {
-              stats.count[col] = values.length;
-              stats.mean[col] = values.reduce((a, b) => a + b, 0) / values.length;
-              stats.min[col] = Math.min(...values);
-              stats.max[col] = Math.max(...values);
-              stats["50%"][col] = values.sort((a, b) => a - b)[Math.floor(values.length / 2)];
-            }
+          const numericColumns = columns.filter(col => {
+            // Check if column has numeric values
+            return resultData.some(row => !isNaN(Number(row[col])));
           });
           
-          outputText += JSON.stringify(stats, null, 2) + "\n\n";
+          if (numericColumns.length > 0) {
+            const stats = {};
+            numericColumns.forEach(col => {
+              const values = resultData
+                .map(row => row[col])
+                .filter(val => !isNaN(Number(val)))
+                .map(Number);
+              
+              if (values.length > 0) {
+                const sum = values.reduce((a, b) => a + b, 0);
+                const mean = sum / values.length;
+                const sortedValues = [...values].sort((a, b) => a - b);
+                const median = sortedValues[Math.floor(sortedValues.length / 2)];
+                
+                if (!stats['count']) stats['count'] = {};
+                if (!stats['mean']) stats['mean'] = {};
+                if (!stats['std']) stats['std'] = {};
+                if (!stats['min']) stats['min'] = {};
+                if (!stats['25%']) stats['25%'] = {};
+                if (!stats['50%']) stats['50%'] = {};
+                if (!stats['75%']) stats['75%'] = {};
+                if (!stats['max']) stats['max'] = {};
+                
+                stats['count'][col] = values.length;
+                stats['mean'][col] = mean.toFixed(6);
+                stats['std'][col] = calculateStdDev(values).toFixed(6);
+                stats['min'][col] = Math.min(...values).toFixed(6);
+                stats['25%'][col] = sortedValues[Math.floor(sortedValues.length * 0.25)].toFixed(6);
+                stats['50%'][col] = median.toFixed(6);
+                stats['75%'][col] = sortedValues[Math.floor(sortedValues.length * 0.75)].toFixed(6);
+                stats['max'][col] = Math.max(...values).toFixed(6);
+              }
+            });
+            
+            // Format describe output like pandas
+            outputText += `              ${numericColumns.join('       ')}\n`;
+            Object.keys(stats).forEach(stat => {
+              outputText += `${stat.padEnd(8)} `;
+              numericColumns.forEach(col => {
+                outputText += `${stats[stat][col]?.toString().padEnd(10) || 'NaN'.padEnd(10)} `;
+              });
+              outputText += '\n';
+            });
+            outputText += '\n';
+          } else {
+            outputText += "No numeric columns found for statistical analysis\n\n";
+          }
         }
         
         // Check for filter operations
         if (pythonCode.includes("df[df['")) {
-          outputText += "# Filtered DataFrame:\n";
-          const filterMatch = pythonCode.match(/df\[df\['([^']+)'\] ([><=]+) ([^\]]+)\]/);
+          const filterMatch = pythonCode.match(/df\[df\['([^']+)'\] ([><=!]+) ([^\]]+)\]/);
           if (filterMatch) {
             const [_, column, operator, valueStr] = filterMatch;
-            const value = Number(valueStr.trim());
+            let value;
             
+            // Try to parse the value - could be number or string
+            if (valueStr.includes("'") || valueStr.includes('"')) {
+              value = valueStr.replace(/['"]/g, '').trim();
+            } else {
+              value = Number(valueStr.trim());
+            }
+            
+            // Apply filter
             resultData = resultData.filter(row => {
-              const colValue = Number(row[column]);
+              const colValue = isNaN(Number(row[column])) ? row[column] : Number(row[column]);
               switch (operator) {
                 case '>': return colValue > value;
                 case '<': return colValue < value;
                 case '>=': return colValue >= value;
                 case '<=': return colValue <= value;
                 case '==': return colValue === value;
+                case '!=': return colValue !== value;
                 default: return true;
               }
             });
             
-            outputText += `Filtered by ${column} ${operator} ${value}\n`;
-            outputText += `Result has ${resultData.length} rows\n\n`;
+            outputText += `# Filtered by ${column} ${operator} ${value}\n`;
+            outputText += `# Result has ${resultData.length} rows\n\n`;
           }
         }
         
         // Check for new column creation
-        if (pythonCode.includes("df['new_column']")) {
-          const newColMatch = pythonCode.match(/df\['([^']+)'\] = df\['([^']+)'\] \* df\['([^']+)'\]/);
-          if (newColMatch) {
-            const [_, newCol, col1, col2] = newColMatch;
-            resultData = resultData.map(row => ({
-              ...row,
-              [newCol]: Number(row[col1]) * Number(row[col2])
-            }));
-            
-            outputText += `# Added new column: ${newCol}\n\n`;
+        const newColMatch = pythonCode.match(/df\['([^']+)'\] = (.+)/);
+        if (newColMatch) {
+          const [_, newCol, expression] = newColMatch;
+          outputText += `# Created new column: '${newCol}'\n\n`;
+          
+          // Handle simple arithmetic between columns
+          if (expression.includes("df['") && expression.includes("*")) {
+            const colsMatch = expression.match(/df\['([^']+)'\] \* df\['([^']+)'\]/);
+            if (colsMatch) {
+              const [_, col1, col2] = colsMatch;
+              resultData = resultData.map(row => ({
+                ...row,
+                [newCol]: Number(row[col1]) * Number(row[col2])
+              }));
+            }
           }
         }
         
         // Check for groupby
         if (pythonCode.includes("df.groupby(")) {
-          const groupByMatch = pythonCode.match(/df.groupby\('([^']+)'\).agg\(\{'([^']+)': '([^']+)'\}\)/);
+          const groupByMatch = pythonCode.match(/df\.groupby\('([^']+)'\)\.agg\(\{'([^']+)': '([^']+)'\}\)/);
           if (groupByMatch) {
             const [_, groupCol, aggCol, aggFunc] = groupByMatch;
             
             // Simple group by implementation
             const groups = {};
             resultData.forEach(row => {
-              const key = row[groupCol];
+              const key = String(row[groupCol]);
               if (!groups[key]) {
                 groups[key] = [];
               }
@@ -214,6 +264,10 @@ df
                 aggValue = aggRows.reduce((acc, row) => acc + Number(row[aggCol]), 0);
               } else if (aggFunc === 'count') {
                 aggValue = aggRows.length;
+              } else if (aggFunc === 'min') {
+                aggValue = Math.min(...aggRows.map(row => Number(row[aggCol])));
+              } else if (aggFunc === 'max') {
+                aggValue = Math.max(...aggRows.map(row => Number(row[aggCol])));
               }
               
               return {
@@ -223,13 +277,13 @@ df
             });
             
             outputText += `# Grouped by: ${groupCol}, aggregated ${aggCol} with ${aggFunc}\n`;
-            outputText += `Result has ${resultData.length} rows\n\n`;
+            outputText += `# Result has ${resultData.length} rows\n\n`;
           }
         }
         
         // Final output
         outputText += "# Final DataFrame Result:\n";
-        outputText += `${resultData.length} rows × ${Object.keys(resultData[0] || {}).length} columns\n`;
+        outputText += `# [${resultData.length} rows × ${Object.keys(resultData[0] || {}).length} columns]\n`;
         
         setPythonOutput(outputText);
         setOutputData(resultData);
@@ -243,17 +297,18 @@ df
     }, 1000); // Simulate processing delay
   };
 
+  // Helper function to calculate standard deviation
+  const calculateStdDev = (values: number[]): number => {
+    const mean = values.reduce((a, b) => a + b, 0) / values.length;
+    const squareDiffs = values.map(value => Math.pow(value - mean, 2));
+    const variance = squareDiffs.reduce((a, b) => a + b, 0) / values.length;
+    return Math.sqrt(variance);
+  };
+
   const handleSave = () => {
     if (outputData.length > 0 && selectedFileId) {
-      const sourceFile = files.find(f => f.id === selectedFileId);
-      let newFileName = "python-transformed.csv";
-      if (sourceFile) {
-        const baseName = sourceFile.name.replace(/\.[^/.]+$/, "");
-        newFileName = `${baseName}-python.csv`;
-      }
-      
       onComplete(outputData, undefined, false);
-      toast.success("Python transformation saved");
+      toast.success(`Python transformation saved as ${outputName}`);
     } else {
       toast.error("No data to save");
     }
@@ -334,20 +389,25 @@ df
           
           <ResizablePanel defaultSize={50}>
             <div className="h-full flex flex-col">
-              <div className="bg-muted p-2 text-sm font-medium">
-                Output
+              <div className="bg-muted p-2 text-sm font-medium flex justify-between items-center">
+                <span>Output</span>
+                {outputData.length > 0 && (
+                  <div className="flex items-center gap-2 text-xs">
+                    <span>{outputData.length} rows</span>
+                  </div>
+                )}
               </div>
               <div className="flex-1 flex flex-col">
                 <ResizablePanelGroup direction="vertical">
                   <ResizablePanel defaultSize={40} minSize={15}>
-                    <div className="h-full overflow-auto">
-                      <pre className="p-4 text-xs font-mono whitespace-pre-wrap">
+                    <div className="h-full overflow-auto bg-slate-950 p-4">
+                      <pre className="text-xs font-mono whitespace-pre-wrap text-slate-200">
                         {error ? (
-                          <div className="text-destructive">{error}</div>
+                          <div className="text-red-400">{error}</div>
                         ) : pythonOutput ? (
                           pythonOutput
                         ) : (
-                          "Run the code to see the output here."
+                          "# Run the code to see output here"
                         )}
                       </pre>
                     </div>
@@ -356,11 +416,17 @@ df
                   <ResizableHandle withHandle />
                   
                   <ResizablePanel defaultSize={60}>
-                    <div className="h-full overflow-auto p-1">
-                      <DataTable 
-                        data={outputData} 
-                        maxHeight="100%"
-                      />
+                    <div className="h-full flex flex-col">
+                      <div className="bg-muted p-2 text-xs flex items-center justify-between">
+                        <span>DataFrame Preview</span>
+                        <span>{outputData.length > 0 ? `${outputData.length} rows × ${Object.keys(outputData[0] || {}).length} columns` : ''}</span>
+                      </div>
+                      <div className="flex-1 overflow-auto">
+                        <DataTable 
+                          data={outputData} 
+                          maxHeight="100%"
+                        />
+                      </div>
                     </div>
                   </ResizablePanel>
                 </ResizablePanelGroup>
