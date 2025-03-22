@@ -6,9 +6,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { FileData } from "@/utils/fileUtils";
 import { toast } from "sonner";
-import { FileCode, Play, Save, PanelRight, Eye } from "lucide-react";
+import { FileCode, Play, Save, Eye } from "lucide-react";
 import DataTable from "@/components/DataTable";
 import ConfigHeader from "./ConfigHeader";
+import { Input } from "@/components/ui/input";
 
 interface PythonTabProps {
   files: FileData[];
@@ -42,9 +43,17 @@ import numpy as np
 # Display first 5 rows
 print(df.head())
 
+# Display column names
+print("Columns:", df.columns.tolist())
+
 # Basic info about the DataFrame
 print(df.info())
 print(df.describe())
+
+# Example: Clean column data types
+# df['column'] = df['column'].astype(str)
+# df['column'] = df['column'].str.strip()
+# df['column'] = df['column'].str.replace(',', '').replace('*', '0').astype(int)
 
 # Example: Filter data
 # filtered_df = df[df['column_name'] > 10]
@@ -53,7 +62,11 @@ print(df.describe())
 # df['new_column'] = df['column1'] * df['column2']
 
 # Example: Group by and aggregate
-# grouped_df = df.groupby('column_name').agg({'other_column': 'mean'})
+# grouped_df = df.groupby(['column1', 'column2'])['value_column'].sum().reset_index()
+
+# Example: Compute market share
+# total_by_group = df.groupby(['group_col'])['value_col'].transform('sum')
+# df['market_share'] = df['value_col'] / total_by_group
 
 # The last DataFrame variable in your code will be returned as the result
 # This will be displayed in the preview panel and can be saved
@@ -89,6 +102,10 @@ df
     }
   }, [selectedFileId, files]);
 
+  const handleOutputNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setOutputName(e.target.value);
+  };
+
   const handleExecutePython = () => {
     // Since we can't actually run Python in the browser, we'll simulate it
     setLoading(true);
@@ -113,6 +130,13 @@ df
           const headData = resultData.slice(0, 5);
           outputText += "# DataFrame.head()\n";
           outputText += JSON.stringify(headData, null, 2) + "\n\n";
+        }
+        
+        // Check for columns access
+        if (pythonCode.includes("df.columns")) {
+          const columns = Object.keys(resultData[0] || {});
+          outputText += "# DataFrame.columns\n";
+          outputText += "Columns: " + JSON.stringify(columns) + "\n\n";
         }
         
         if (pythonCode.includes("df.info()")) {
@@ -218,9 +242,107 @@ df
           }
         }
         
+        // Check for astype and string operations
+        const astypeRegex = /df\['([^']+)'\]\s*=\s*df\['([^']+)'\]\.astype\(([^)]+)\)/g;
+        let astypeMatch;
+        while ((astypeMatch = astypeRegex.exec(pythonCode)) !== null) {
+          const [_, targetCol, sourceCol, dataType] = astypeMatch;
+          outputText += `# Converting column '${targetCol}' to ${dataType}\n`;
+          
+          if (dataType.includes("str")) {
+            resultData = resultData.map(row => ({
+              ...row,
+              [targetCol]: String(row[sourceCol] || "")
+            }));
+          } else if (dataType.includes("int")) {
+            resultData = resultData.map(row => ({
+              ...row,
+              [targetCol]: parseInt(String(row[sourceCol]).replace(/[^\d.-]/g, "")) || 0
+            }));
+          } else if (dataType.includes("float")) {
+            resultData = resultData.map(row => ({
+              ...row,
+              [targetCol]: parseFloat(String(row[sourceCol]).replace(/[^\d.-]/g, "")) || 0
+            }));
+          }
+        }
+        
+        // Check for string operations like strip()
+        const stripRegex = /df\['([^']+)'\]\s*=\s*df\['([^']+)'\]\.str\.strip\(\)/g;
+        let stripMatch;
+        while ((stripMatch = stripRegex.exec(pythonCode)) !== null) {
+          const [_, targetCol, sourceCol] = stripMatch;
+          outputText += `# Stripping whitespace from column '${targetCol}'\n`;
+          
+          resultData = resultData.map(row => ({
+            ...row,
+            [targetCol]: String(row[sourceCol] || "").trim()
+          }));
+        }
+        
+        // Check for string replace
+        const replaceRegex = /df\['([^']+)'\]\s*=\s*df\['([^']+)'\]\.str\.replace\('([^']+)',\s*'([^']*)'\)/g;
+        let replaceMatch;
+        while ((replaceMatch = replaceRegex.exec(pythonCode)) !== null) {
+          const [_, targetCol, sourceCol, find, replace] = replaceMatch;
+          outputText += `# Replacing '${find}' with '${replace}' in column '${targetCol}'\n`;
+          
+          resultData = resultData.map(row => ({
+            ...row,
+            [targetCol]: String(row[sourceCol] || "").replace(new RegExp(find, 'g'), replace)
+          }));
+        }
+        
+        // Check for replace with fillna
+        if (pythonCode.includes(".replace('*', 0)") || pythonCode.includes(".replace('*',0)")) {
+          const replaceStarRegex = /df\['([^']+)'\].*replace\('\*',\s*0\)/;
+          const replaceMatch = pythonCode.match(replaceStarRegex);
+          if (replaceMatch) {
+            const [_, column] = replaceMatch;
+            outputText += `# Replacing '*' with 0 in column '${column}'\n`;
+            
+            resultData = resultData.map(row => ({
+              ...row,
+              [column]: String(row[column]).replace(/\*/g, "0")
+            }));
+          }
+        }
+        
+        // Check for multiple string operations in one line
+        const complexReplaceRegex = /df\['([^']+)'\]\s*=\s*df\['([^']+)'\]\.str\.replace\('([^']+)',\s*'([^']*)'\)\.replace\('([^']+)',\s*([^)]+)\)\.astype\(([^)]+)\)/;
+        const complexMatch = pythonCode.match(complexReplaceRegex);
+        if (complexMatch) {
+          const [_, targetCol, sourceCol, find1, replace1, find2, replace2, dataType] = complexMatch;
+          outputText += `# Complex operation on column '${targetCol}'\n`;
+          
+          resultData = resultData.map(row => {
+            let value = String(row[sourceCol] || "");
+            // First replace
+            value = value.replace(new RegExp(find1, 'g'), replace1);
+            // Second replace
+            let replaceValue = replace2.trim();
+            if (replaceValue.startsWith("'") || replaceValue.startsWith('"')) {
+              replaceValue = replaceValue.replace(/['"]/g, '');
+            }
+            value = value.replace(new RegExp(find2, 'g'), replaceValue);
+            
+            // Convert type
+            if (dataType.includes("int")) {
+              value = parseInt(value.replace(/[^\d.-]/g, "")) || 0;
+            } else if (dataType.includes("float")) {
+              value = parseFloat(value.replace(/[^\d.-]/g, "")) || 0;
+            }
+            
+            return {
+              ...row,
+              [targetCol]: value
+            };
+          });
+        }
+        
         // Check for new column creation
         const newColMatch = pythonCode.match(/df\['([^']+)'\] = (.+)/);
-        if (newColMatch) {
+        if (newColMatch && !astypeMatch && !stripMatch && !replaceMatch && !complexMatch) {
           const [_, newCol, expression] = newColMatch;
           outputText += `# Created new column: '${newCol}'\n\n`;
           
@@ -239,46 +361,184 @@ df
         
         // Check for groupby
         if (pythonCode.includes("df.groupby(")) {
-          const groupByMatch = pythonCode.match(/df\.groupby\('([^']+)'\)\.agg\(\{'([^']+)': '([^']+)'\}\)/);
+          // Handle simple groupby with single aggregation
+          const groupByMatch = pythonCode.match(/df\.groupby\(\[([^\]]+)\]\)\['([^']+)'\]\.([^(]+)\(\)\.reset_index\(\)/);
           if (groupByMatch) {
-            const [_, groupCol, aggCol, aggFunc] = groupByMatch;
+            const [_, groupColsStr, aggCol, aggFunc] = groupByMatch;
+            // Parse group columns
+            const groupCols = groupColsStr.split(',').map(col => 
+              col.trim().replace(/['"]/g, '')
+            );
+            
+            outputText += `# Grouping by: [${groupCols.join(', ')}], aggregating ${aggCol} with ${aggFunc}\n`;
             
             // Simple group by implementation
             const groups = {};
             resultData.forEach(row => {
-              const key = String(row[groupCol]);
+              // Create composite key from all group columns
+              const key = groupCols.map(col => String(row[col])).join('|');
               if (!groups[key]) {
-                groups[key] = [];
+                groups[key] = {
+                  rows: [],
+                  groupValues: {}
+                };
+                // Store the group column values
+                groupCols.forEach(col => {
+                  groups[key].groupValues[col] = row[col];
+                });
               }
-              groups[key].push(row);
+              groups[key].rows.push(row);
             });
             
-            resultData = Object.entries(groups).map(([key, rows]) => {
-              const aggRows = rows as any[];
+            // Apply aggregation
+            resultData = Object.values(groups).map((group: any) => {
+              const aggRows = group.rows;
               let aggValue = 0;
               
-              if (aggFunc === 'mean') {
-                const sum = aggRows.reduce((acc, row) => acc + Number(row[aggCol]), 0);
+              if (aggFunc.includes('sum')) {
+                aggValue = aggRows.reduce((acc, row) => acc + (Number(row[aggCol]) || 0), 0);
+              } else if (aggFunc.includes('mean') || aggFunc.includes('avg')) {
+                const sum = aggRows.reduce((acc, row) => acc + (Number(row[aggCol]) || 0), 0);
                 aggValue = sum / aggRows.length;
-              } else if (aggFunc === 'sum') {
-                aggValue = aggRows.reduce((acc, row) => acc + Number(row[aggCol]), 0);
-              } else if (aggFunc === 'count') {
+              } else if (aggFunc.includes('count')) {
                 aggValue = aggRows.length;
-              } else if (aggFunc === 'min') {
-                aggValue = Math.min(...aggRows.map(row => Number(row[aggCol])));
-              } else if (aggFunc === 'max') {
-                aggValue = Math.max(...aggRows.map(row => Number(row[aggCol])));
+              } else if (aggFunc.includes('min')) {
+                aggValue = Math.min(...aggRows.map(row => Number(row[aggCol]) || 0));
+              } else if (aggFunc.includes('max')) {
+                aggValue = Math.max(...aggRows.map(row => Number(row[aggCol]) || 0));
               }
               
               return {
-                [groupCol]: key,
-                [`${aggCol}_${aggFunc}`]: aggValue
+                ...group.groupValues,
+                [aggCol]: aggValue
               };
             });
             
-            outputText += `# Grouped by: ${groupCol}, aggregated ${aggCol} with ${aggFunc}\n`;
             outputText += `# Result has ${resultData.length} rows\n\n`;
           }
+        }
+        
+        // Check for transform operations
+        if (pythonCode.includes("transform(")) {
+          const transformMatch = pythonCode.match(/df\.groupby\(\[([^\]]+)\]\)\['([^']+)'\]\.transform\('([^']+)'\)/);
+          if (transformMatch) {
+            const [_, groupColsStr, aggCol, aggFunc] = transformMatch;
+            // Parse group columns
+            const groupCols = groupColsStr.split(',').map(col => 
+              col.trim().replace(/['"]/g, '')
+            );
+            
+            outputText += `# Computing transformed values for ${aggCol} grouped by [${groupCols.join(', ')}]\n`;
+            
+            // Compute group aggregations
+            const groups = {};
+            resultData.forEach(row => {
+              // Create composite key from all group columns
+              const key = groupCols.map(col => String(row[col])).join('|');
+              if (!groups[key]) {
+                groups[key] = {
+                  rows: [],
+                  groupValues: {}
+                };
+                // Store the group column values
+                groupCols.forEach(col => {
+                  groups[key].groupValues[col] = row[col];
+                });
+              }
+              groups[key].rows.push(row);
+            });
+            
+            // Calculate aggregation for each group
+            const groupAggs = {};
+            Object.entries(groups).forEach(([key, group]: [string, any]) => {
+              const aggRows = group.rows;
+              
+              if (aggFunc.includes('sum')) {
+                groupAggs[key] = aggRows.reduce((acc, row) => acc + (Number(row[aggCol]) || 0), 0);
+              } else if (aggFunc.includes('mean') || aggFunc.includes('avg')) {
+                const sum = aggRows.reduce((acc, row) => acc + (Number(row[aggCol]) || 0), 0);
+                groupAggs[key] = sum / aggRows.length;
+              } else if (aggFunc.includes('count')) {
+                groupAggs[key] = aggRows.length;
+              }
+            });
+            
+            // Create new column with transformed value
+            const newColName = `${aggCol}_${aggFunc}`;
+            resultData = resultData.map(row => {
+              // Find group this row belongs to
+              const key = groupCols.map(col => String(row[col])).join('|');
+              return {
+                ...row,
+                [newColName]: groupAggs[key] || 0
+              };
+            });
+          }
+        }
+        
+        // Check for merge operations
+        if (pythonCode.includes("merge(")) {
+          outputText += "# Merge operation detected\n";
+          outputText += "# Note: Browser simulation has limited merge capabilities\n";
+          
+          // We won't actually perform a merge because it would require creating a separate DataFrame
+          // Instead, we'll add a note that in real Python this would work
+        }
+        
+        // Check for market share calculation (division between columns)
+        const marketShareMatch = pythonCode.match(/df\['([^']+)'\]\s*=\s*df\['([^']+)'\]\s*\/\s*df\['([^']+)'\]/);
+        if (marketShareMatch) {
+          const [_, newCol, numerator, denominator] = marketShareMatch;
+          outputText += `# Computing ${newCol} as ${numerator} / ${denominator}\n`;
+          
+          resultData = resultData.map(row => {
+            const num = Number(row[numerator]) || 0;
+            const den = Number(row[denominator]) || 1; // Avoid division by zero
+            return {
+              ...row,
+              [newCol]: den === 0 ? 0 : num / den
+            };
+          });
+        }
+        
+        // Check for fillna operations
+        const fillnaMatch = pythonCode.match(/df\['([^']+)'\]\.fillna\(([^)]+)\)/);
+        if (fillnaMatch) {
+          const [_, col, fillValue] = fillnaMatch;
+          let value = fillValue.trim();
+          if (value.startsWith("'") || value.startsWith('"')) {
+            value = value.replace(/['"]/g, '');
+          } else if (!isNaN(Number(value))) {
+            value = Number(value);
+          }
+          
+          outputText += `# Filling NA values in ${col} with ${value}\n`;
+          
+          resultData = resultData.map(row => ({
+            ...row,
+            [col]: row[col] === null || row[col] === undefined || String(row[col]).trim() === '' 
+              ? value 
+              : row[col]
+          }));
+        }
+        
+        // Check for drop columns
+        const dropMatch = pythonCode.match(/df\.drop\(columns=\[([^\]]+)\],\s*inplace=True\)/);
+        if (dropMatch) {
+          const [_, colsStr] = dropMatch;
+          const colsToDrop = colsStr.split(',').map(col => 
+            col.trim().replace(/['"]/g, '')
+          );
+          
+          outputText += `# Dropping columns: ${colsToDrop.join(', ')}\n`;
+          
+          resultData = resultData.map(row => {
+            const newRow = {...row};
+            colsToDrop.forEach(col => {
+              delete newRow[col];
+            });
+            return newRow;
+          });
         }
         
         // Final output
@@ -307,7 +567,19 @@ df
 
   const handleSave = () => {
     if (outputData.length > 0 && selectedFileId) {
-      onComplete(outputData, undefined, false);
+      // Create a new file with the transformed data
+      const newFile: FileData = {
+        id: `python-${Date.now()}`,
+        name: outputName,
+        type: "csv",
+        size: 0, // Size will be calculated dynamically
+        data: outputData,
+        columns: outputData.length > 0 ? Object.keys(outputData[0]) : [],
+        selected: true,
+        content: '',
+      };
+      
+      onComplete(outputData, [...files, newFile], false);
       toast.success(`Python transformation saved as ${outputName}`);
     } else {
       toast.error("No data to save");
@@ -335,7 +607,7 @@ df
       />
 
       <div className="grid grid-cols-1 gap-4">
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center flex-wrap gap-2">
           <Select value={selectedFileId} onValueChange={setSelectedFileId}>
             <SelectTrigger className="max-w-[300px]">
               <SelectValue placeholder="Select a file to transform" />
@@ -347,7 +619,15 @@ df
             </SelectContent>
           </Select>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            <div className="flex-1">
+              <Input
+                value={outputName}
+                onChange={handleOutputNameChange}
+                placeholder="Output filename"
+                className="min-w-[200px]"
+              />
+            </div>
             <Button
               variant="secondary"
               size="sm"
@@ -419,7 +699,11 @@ df
                     <div className="h-full flex flex-col">
                       <div className="bg-muted p-2 text-xs flex items-center justify-between">
                         <span>DataFrame Preview</span>
-                        <span>{outputData.length > 0 ? `${outputData.length} rows × ${Object.keys(outputData[0] || {}).length} columns` : ''}</span>
+                        <span>
+                          {outputData.length > 0 ? 
+                            `${outputData.length} rows × ${Object.keys(outputData[0] || {}).length} columns` : 
+                            ''}
+                        </span>
                       </div>
                       <div className="flex-1 overflow-auto">
                         <DataTable 
