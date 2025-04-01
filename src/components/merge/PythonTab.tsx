@@ -31,7 +31,6 @@ const PythonTab: React.FC<PythonTabProps> = ({
   const [loading, setLoading] = useState(false);
   const [outputName, setOutputName] = useState<string>("");
 
-  // Default Python code template
   const defaultPythonCode = `# Python Notebook
 # Available packages: pandas, numpy, matplotlib, scikit-learn
 # The DataFrame is already loaded as 'df'
@@ -72,7 +71,6 @@ print(df.describe())
 df
 `;
 
-  // When selected file changes, update the code and reset outputs
   useEffect(() => {
     if (selectedFiles.length > 0 && !selectedFileId) {
       setSelectedFileId(selectedFiles[0].id);
@@ -87,14 +85,12 @@ df
     setError(null);
   }, [selectedFileId, selectedFiles]);
 
-  // Update preview data and suggested output name when file selection changes
   useEffect(() => {
     if (selectedFileId) {
       const file = files.find(f => f.id === selectedFileId);
       if (file && file.data) {
         setOutputData(file.data.slice(0, 100)); // Show only first 100 rows initially
         
-        // Set default output name based on the selected file
         const baseName = file.name.replace(/\.[^/.]+$/, "");
         setOutputName(`${baseName}-python.csv`);
       }
@@ -106,7 +102,6 @@ df
   };
 
   const handleExecutePython = () => {
-    // Since we can't actually run Python in the browser, we'll simulate it
     setLoading(true);
     setError(null);
     setPythonOutput("");
@@ -120,18 +115,15 @@ df
     
     setTimeout(() => {
       try {
-        // Simulate Python execution with JavaScript
         let outputText = "";
         let resultData = [...file.data];
         
-        // Parse the Python code and perform simple operations
         if (pythonCode.includes("df.head()")) {
           const headData = resultData.slice(0, 5);
           outputText += "# DataFrame.head()\n";
           outputText += JSON.stringify(headData, null, 2) + "\n\n";
         }
         
-        // Check for columns access
         if (pythonCode.includes("df.columns")) {
           const columns = Object.keys(resultData[0] || {});
           outputText += "# DataFrame.columns\n";
@@ -155,14 +147,12 @@ df
           outputText += "# DataFrame.describe()\n";
           
           const numericColumns = columns.filter(col => {
-            // Check if column has numeric values
             return resultData.some(row => !isNaN(Number(row[col])));
           });
           
           if (numericColumns.length > 0) {
             const stats = {};
             numericColumns.forEach(col => {
-              // Check if column has numeric values
               const values = resultData
                 .map(row => row[col])
                 .filter(val => !isNaN(Number(val)))
@@ -194,7 +184,6 @@ df
               }
             });
             
-            // Format describe output like pandas
             outputText += `              ${numericColumns.join('       ')}\n`;
             Object.keys(stats).forEach(stat => {
               outputText += `${stat.padEnd(8)} `;
@@ -209,21 +198,18 @@ df
           }
         }
         
-        // Check for filter operations
         if (pythonCode.includes("df[df['")) {
           const filterMatch = pythonCode.match(/df\[df\['([^']+)'\] ([><=!]+) ([^\]]+)\]/);
           if (filterMatch) {
             const [_, column, operator, valueStr] = filterMatch;
             let value;
             
-            // Try to parse the value - could be number or string
             if (valueStr.includes("'") || valueStr.includes('"')) {
               value = valueStr.replace(/['"]/g, '').trim();
             } else {
               value = Number(valueStr.trim());
             }
             
-            // Apply filter
             resultData = resultData.filter(row => {
               const colValue = isNaN(Number(row[column])) ? row[column] : Number(row[column]);
               switch (operator) {
@@ -242,7 +228,6 @@ df
           }
         }
         
-        // Check for astype and string operations
         const astypeRegex = /df\['([^']+)'\]\s*=\s*df\['([^']+)'\]\.astype\(([^)]+)\)/g;
         let astypeMatch;
         while ((astypeMatch = astypeRegex.exec(pythonCode)) !== null) {
@@ -267,7 +252,6 @@ df
           }
         }
         
-        // Check for string operations like strip()
         const stripRegex = /df\['([^']+)'\]\s*=\s*df\['([^']+)'\]\.str\.strip\(\)/g;
         let stripMatch;
         while ((stripMatch = stripRegex.exec(pythonCode)) !== null) {
@@ -280,7 +264,6 @@ df
           }));
         }
         
-        // Check for string replace
         const replaceRegex = /df\['([^']+)'\]\s*=\s*df\['([^']+)'\]\.str\.replace\('([^']+)',\s*'([^']*)'\)/g;
         let replaceMatch;
         while ((replaceMatch = replaceRegex.exec(pythonCode)) !== null) {
@@ -293,7 +276,6 @@ df
           }));
         }
         
-        // Check for replace with fillna
         if (pythonCode.includes(".replace('*', 0)") || pythonCode.includes(".replace('*',0)")) {
           const replaceStarRegex = /df\['([^']+)'\].*replace\('\*',\s*0\)/;
           const replaceMatch = pythonCode.match(replaceStarRegex);
@@ -308,7 +290,6 @@ df
           }
         }
         
-        // Check for multiple string operations in one line
         const complexReplaceRegex = /df\['([^']+)'\]\s*=\s*df\['([^']+)'\]\.str\.replace\('([^']+)',\s*'([^']*)'\)\.replace\('([^']+)',\s*([^)]+)\)\.astype\(([^)]+)\)/;
         const complexMatch = pythonCode.match(complexReplaceRegex);
         if (complexMatch) {
@@ -317,16 +298,13 @@ df
           
           resultData = resultData.map(row => {
             let value = String(row[sourceCol] || "");
-            // First replace
             value = value.replace(new RegExp(find1, 'g'), replace1);
-            // Second replace
             let replaceValue = replace2.trim();
             if (replaceValue.startsWith("'") || replaceValue.startsWith('"')) {
               replaceValue = replaceValue.replace(/['"]/g, '');
             }
             value = value.replace(new RegExp(find2, 'g'), replaceValue);
             
-            // Convert type
             if (dataType.includes("int")) {
               value = String(parseInt(value.replace(/[^\d.-]/g, "")) || "0");
             } else if (dataType.includes("float")) {
@@ -340,13 +318,11 @@ df
           });
         }
         
-        // Check for new column creation
         const newColMatch = pythonCode.match(/df\['([^']+)'\] = (.+)/);
         if (newColMatch && !astypeMatch && !stripMatch && !replaceMatch && !complexMatch) {
           const [_, newCol, expression] = newColMatch;
           outputText += `# Created new column: '${newCol}'\n\n`;
           
-          // Handle simple arithmetic between columns
           if (expression.includes("df['") && expression.includes("*")) {
             const colsMatch = expression.match(/df\['([^']+)'\] \* df\['([^']+)'\]/);
             if (colsMatch) {
@@ -359,30 +335,24 @@ df
           }
         }
         
-        // Check for groupby
         if (pythonCode.includes("df.groupby(")) {
-          // Handle simple groupby with single aggregation
           const groupByMatch = pythonCode.match(/df\.groupby\(\[([^\]]+)\]\)\['([^']+)'\]\.([^(]+)\(\)\.reset_index\(\)/);
           if (groupByMatch) {
             const [_, groupColsStr, aggCol, aggFunc] = groupByMatch;
-            // Parse group columns
             const groupCols = groupColsStr.split(',').map(col => 
               col.trim().replace(/['"]/g, '')
             );
             
             outputText += `# Grouping by: [${groupCols.join(', ')}], aggregating ${aggCol} with ${aggFunc}\n`;
             
-            // Simple group by implementation
             const groups = {};
             resultData.forEach(row => {
-              // Create composite key from all group columns
               const key = groupCols.map(col => String(row[col])).join('|');
               if (!groups[key]) {
                 groups[key] = {
                   rows: [],
                   groupValues: {}
                 };
-                // Store the group column values
                 groupCols.forEach(col => {
                   groups[key].groupValues[col] = row[col];
                 });
@@ -390,7 +360,6 @@ df
               groups[key].rows.push(row);
             });
             
-            // Apply aggregation
             resultData = Object.values(groups).map((group: any) => {
               const aggRows = group.rows;
               let aggValue = 0;
@@ -418,29 +387,24 @@ df
           }
         }
         
-        // Check for transform operations
-        if (pythonCode.includes("transform(")) {
+        if (pythonCode.includes("df.transform(")) {
           const transformMatch = pythonCode.match(/df\.groupby\(\[([^\]]+)\]\)\['([^']+)'\]\.transform\('([^']+)'\)/);
           if (transformMatch) {
             const [_, groupColsStr, aggCol, aggFunc] = transformMatch;
-            // Parse group columns
             const groupCols = groupColsStr.split(',').map(col => 
               col.trim().replace(/['"]/g, '')
             );
             
             outputText += `# Computing transformed values for ${aggCol} grouped by [${groupCols.join(', ')}]\n`;
             
-            // Compute group aggregations
             const groups = {};
             resultData.forEach(row => {
-              // Create composite key from all group columns
               const key = groupCols.map(col => String(row[col])).join('|');
               if (!groups[key]) {
                 groups[key] = {
                   rows: [],
                   groupValues: {}
                 };
-                // Store the group column values
                 groupCols.forEach(col => {
                   groups[key].groupValues[col] = row[col];
                 });
@@ -448,7 +412,6 @@ df
               groups[key].rows.push(row);
             });
             
-            // Calculate aggregation for each group
             const groupAggs = {};
             Object.entries(groups).forEach(([key, group]: [string, any]) => {
               const aggRows = group.rows;
@@ -463,10 +426,8 @@ df
               }
             });
             
-            // Create new column with transformed value
             const newColName = `${aggCol}_${aggFunc}`;
             resultData = resultData.map(row => {
-              // Find group this row belongs to
               const key = groupCols.map(col => String(row[col])).join('|');
               return {
                 ...row,
@@ -476,16 +437,17 @@ df
           }
         }
         
-        // Check for merge operations
-        if (pythonCode.includes("merge(")) {
+        if (pythonCode.includes("df.merge(")) {
           outputText += "# Merge operation detected\n";
           outputText += "# Note: Browser simulation has limited merge capabilities\n";
           
-          // We won't actually perform a merge because it would require creating a separate DataFrame
-          // Instead, we'll add a note that in real Python this would work
+          const mergeMatch = pythonCode.match(/df\.merge\(([^)]+)\)/);
+          if (mergeMatch) {
+            const [_, mergeArgs] = mergeMatch;
+            outputText += `# Merge arguments: ${mergeArgs}\n`;
+          }
         }
         
-        // Check for market share calculation (division between columns)
         const marketShareMatch = pythonCode.match(/df\['([^']+)'\]\s*=\s*df\['([^']+)'\]\s*\/\s*df\['([^']+)'\]/);
         if (marketShareMatch) {
           const [_, newCol, numerator, denominator] = marketShareMatch;
@@ -493,7 +455,7 @@ df
           
           resultData = resultData.map(row => {
             const num = Number(row[numerator]) || 0;
-            const den = Number(row[denominator]) || 1; // Avoid division by zero
+            const den = Number(row[denominator]) || 1;
             return {
               ...row,
               [newCol]: String(den === 0 ? 0 : num / den)
@@ -501,47 +463,48 @@ df
           });
         }
         
-        // Check for fillna operations
-        const fillnaMatch = pythonCode.match(/df\['([^']+)'\]\.fillna\(([^)]+)\)/);
-        if (fillnaMatch) {
-          const [_, col, fillValue] = fillnaMatch;
-          let value = fillValue.trim();
-          if (value.startsWith("'") || value.startsWith('"')) {
-            value = value.replace(/['"]/g, '');
-          } else if (!isNaN(Number(value))) {
-            value = Number(value);
+        if (pythonCode.includes("df.fillna(")) {
+          const fillnaMatch = pythonCode.match(/df\['([^']+)'\]\.fillna\(([^)]+)\)/);
+          if (fillnaMatch) {
+            const [_, col, fillValue] = fillnaMatch;
+            let value = fillValue.trim();
+            if (value.startsWith("'") || value.startsWith('"')) {
+              value = value.replace(/['"]/g, '');
+            } else if (!isNaN(Number(value))) {
+              value = Number(value);
+            }
+            
+            outputText += `# Filling NA values in ${col} with ${value}\n`;
+            
+            resultData = resultData.map(row => ({
+              ...row,
+              [col]: row[col] === null || row[col] === undefined || String(row[col]).trim() === '' 
+                ? String(value) 
+                : row[col]
+            }));
           }
-          
-          outputText += `# Filling NA values in ${col} with ${value}\n`;
-          
-          resultData = resultData.map(row => ({
-            ...row,
-            [col]: row[col] === null || row[col] === undefined || String(row[col]).trim() === '' 
-              ? String(value) 
-              : row[col]
-          }));
         }
         
-        // Check for drop columns
-        const dropMatch = pythonCode.match(/df\.drop\(columns=\[([^\]]+)\],\s*inplace=True\)/);
-        if (dropMatch) {
-          const [_, colsStr] = dropMatch;
-          const colsToDrop = colsStr.split(',').map(col => 
-            col.trim().replace(/['"]/g, '')
-          );
-          
-          outputText += `# Dropping columns: ${colsToDrop.join(', ')}\n`;
-          
-          resultData = resultData.map(row => {
-            const newRow = {...row};
-            colsToDrop.forEach(col => {
-              delete newRow[col];
+        if (pythonCode.includes("df.drop(columns=")) {
+          const dropMatch = pythonCode.match(/df\.drop\(columns=\[([^\]]+)\],\s*inplace=True\)/);
+          if (dropMatch) {
+            const [_, colsStr] = dropMatch;
+            const colsToDrop = colsStr.split(',').map(col => 
+              col.trim().replace(/['"]/g, '')
+            );
+            
+            outputText += `# Dropping columns: ${colsToDrop.join(', ')}\n`;
+            
+            resultData = resultData.map(row => {
+              const newRow = {...row};
+              colsToDrop.forEach(col => {
+                delete newRow[col];
+              });
+              return newRow;
             });
-            return newRow;
-          });
+          }
         }
         
-        // Final output
         outputText += "# Final DataFrame Result:\n";
         outputText += `# [${resultData.length} rows × ${Object.keys(resultData[0] || {}).length} columns]\n`;
         
@@ -554,10 +517,9 @@ df
         setLoading(false);
         toast.error(`Error executing Python code: ${err instanceof Error ? err.message : "Unknown error"}`);
       }
-    }, 1000); // Simulate processing delay
+    }, 1000);
   };
 
-  // Helper function to calculate standard deviation
   const calculateStdDev = (values: number[]): number => {
     const mean = values.reduce((a, b) => a + b, 0) / values.length;
     const squareDiffs = values.map(value => Math.pow(value - mean, 2));
@@ -567,12 +529,11 @@ df
 
   const handleSave = () => {
     if (outputData.length > 0 && selectedFileId) {
-      // Create a new file with the transformed data
       const newFile: FileData = {
         id: `python-${Date.now()}`,
         name: outputName,
         type: "csv",
-        size: 0, // Size will be calculated dynamically
+        size: 0,
         data: outputData,
         columns: outputData.length > 0 ? Object.keys(outputData[0]) : [],
         selected: true,
