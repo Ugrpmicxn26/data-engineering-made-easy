@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -163,6 +162,7 @@ df
           if (numericColumns.length > 0) {
             const stats = {};
             numericColumns.forEach(col => {
+              // Check if column has numeric values
               const values = resultData
                 .map(row => row[col])
                 .filter(val => !isNaN(Number(val)))
