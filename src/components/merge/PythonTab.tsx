@@ -257,12 +257,12 @@ df
           } else if (dataType.includes("int")) {
             resultData = resultData.map(row => ({
               ...row,
-              [targetCol]: parseInt(String(row[sourceCol]).replace(/[^\d.-]/g, "")) || 0
+              [targetCol]: String(parseInt(String(row[sourceCol]).replace(/[^\d.-]/g, "")) || "0")
             }));
           } else if (dataType.includes("float")) {
             resultData = resultData.map(row => ({
               ...row,
-              [targetCol]: parseFloat(String(row[sourceCol]).replace(/[^\d.-]/g, "")) || 0
+              [targetCol]: String(parseFloat(String(row[sourceCol]).replace(/[^\d.-]/g, "")) || "0")
             }));
           }
         }
@@ -328,9 +328,9 @@ df
             
             // Convert type
             if (dataType.includes("int")) {
-              value = parseInt(value.replace(/[^\d.-]/g, "")) || 0;
+              value = String(parseInt(value.replace(/[^\d.-]/g, "")) || "0");
             } else if (dataType.includes("float")) {
-              value = parseFloat(value.replace(/[^\d.-]/g, "")) || 0;
+              value = String(parseFloat(value.replace(/[^\d.-]/g, "")) || "0");
             }
             
             return {
@@ -353,7 +353,7 @@ df
               const [_, col1, col2] = colsMatch;
               resultData = resultData.map(row => ({
                 ...row,
-                [newCol]: Number(row[col1]) * Number(row[col2])
+                [newCol]: String(Number(row[col1]) * Number(row[col2]))
               }));
             }
           }
@@ -410,7 +410,7 @@ df
               
               return {
                 ...group.groupValues,
-                [aggCol]: aggValue
+                [aggCol]: String(aggValue)
               };
             });
             
@@ -470,7 +470,7 @@ df
               const key = groupCols.map(col => String(row[col])).join('|');
               return {
                 ...row,
-                [newColName]: groupAggs[key] || 0
+                [newColName]: String(groupAggs[key] || "0")
               };
             });
           }
@@ -496,7 +496,7 @@ df
             const den = Number(row[denominator]) || 1; // Avoid division by zero
             return {
               ...row,
-              [newCol]: den === 0 ? 0 : num / den
+              [newCol]: String(den === 0 ? 0 : num / den)
             };
           });
         }
@@ -517,7 +517,7 @@ df
           resultData = resultData.map(row => ({
             ...row,
             [col]: row[col] === null || row[col] === undefined || String(row[col]).trim() === '' 
-              ? value 
+              ? String(value) 
               : row[col]
           }));
         }
