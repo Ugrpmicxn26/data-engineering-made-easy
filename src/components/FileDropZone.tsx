@@ -1,4 +1,3 @@
-
 import React, { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { FileData, extractZipFiles, parseCSV, readFileAsText } from "@/utils/fileUtils";
@@ -31,11 +30,15 @@ const FileDropZone: React.FC<FileDropZoneProps> = ({ onFilesProcessed }) => {
               // Process each extracted CSV file
               for (const extractedFile of extractedFiles) {
                 const content = await readFileAsText(extractedFile);
-                const { data, columns } = await parseCSV(content);
+                const fileType = extractedFile.name.toLowerCase().endsWith(".txt") ? "txt" : "csv";
+                const separator = fileType === "txt" ? "\t" : ",";
+                const encoding = fileType === "txt" ? "unicode_escape" : "utf-8";
+                
+                const { data, columns } = await parseCSV(content, { separator, encoding });
                 processedFiles.push({
                   id: `${extractedFile.name}-${Date.now()}`,
                   name: extractedFile.name,
-                  type: extractedFile.type,
+                  type: fileType,
                   size: extractedFile.size,
                   content,
                   data,
@@ -47,15 +50,15 @@ const FileDropZone: React.FC<FileDropZoneProps> = ({ onFilesProcessed }) => {
             // Process CSV and TXT files
             else if (file.name.toLowerCase().endsWith(".csv") || file.name.toLowerCase().endsWith(".txt")) {
               const content = await readFileAsText(file);
-              // Default parsing options - will be adjustable later in the UI
-              const separator = file.name.toLowerCase().endsWith(".txt") ? "\t" : ",";
-              const encoding = file.name.toLowerCase().endsWith(".txt") ? "unicode_escape" : "utf-8";
+              const fileType = file.name.toLowerCase().endsWith(".txt") ? "txt" : "csv";
+              const separator = fileType === "txt" ? "\t" : ",";
+              const encoding = fileType === "txt" ? "unicode_escape" : "utf-8";
               
-              const { data, columns } = await parseCSV(content);
+              const { data, columns } = await parseCSV(content, { separator, encoding });
               processedFiles.push({
                 id: `${file.name}-${Date.now()}`,
                 name: file.name,
-                type: file.type,
+                type: fileType,
                 size: file.size,
                 content,
                 data,
