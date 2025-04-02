@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import { FileData } from "@/utils/fileUtils";
+import { FileData, ParseOptions } from "@/utils/fileUtils";
 import { toast } from "sonner";
 import { FileCode, Play, Save, Eye, Settings } from "lucide-react";
 import DataTable from "@/components/DataTable";
@@ -38,7 +37,7 @@ const PythonTab: React.FC<PythonTabProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [outputName, setOutputName] = useState<string>("");
-  const [parseOptions, setParseOptions] = useState<FileParseOptions>({
+  const [parseOptions, setParseOptions] = useState<ParseOptions>({
     separator: ",",
     encoding: "utf-8"
   });
@@ -126,7 +125,7 @@ df
     setOutputName(e.target.value);
   };
 
-  const handleParseOptionChange = (option: keyof FileParseOptions, value: string) => {
+  const handleParseOptionChange = (option: keyof ParseOptions, value: string) => {
     setParseOptions(prev => ({
       ...prev,
       [option]: value
@@ -496,13 +495,13 @@ df
             const result = den === 0 ? 0 : num / den;
             return {
               ...row,
-              [newCol]: String(result) // Convert number to string to fix TypeError
+              [newCol]: String(result) // Explicitly convert to string to fix TypeScript error
             };
           });
         }
         
         if (pythonCode.includes("df.fillna(")) {
-          const fillnaMatch = pythonCode.match(/df\['([^']+)'\]\.fillna\(([^)]+)\)/);
+          const fillnaMatch = pythonCode.match(/df\['([^']+)'\].fillna\(([^)]+)\)/);
           if (fillnaMatch) {
             const [_, col, fillValue] = fillnaMatch;
             let value = fillValue.trim();
@@ -687,10 +686,13 @@ df
               size="sm"
               onClick={handleExecutePython}
               disabled={loading || !selectedFileId}
-              isLoading={loading}
               className="flex items-center gap-2"
             >
-              <Play className="h-4 w-4" />
+              {loading ? (
+                <div className="h-4 w-4 border-2 border-current border-t-transparent animate-spin rounded-full"></div>
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
               Run Python Code
             </Button>
             <Button

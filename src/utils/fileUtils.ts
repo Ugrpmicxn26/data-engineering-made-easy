@@ -41,6 +41,11 @@ export interface PivotConfig {
   aggregation: "sum" | "count" | "average" | "min" | "max" | "first";
 }
 
+export interface ParseOptions {
+  separator?: string;
+  encoding?: string;
+}
+
 // Function to read a file as text
 export const readFileAsText = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -58,13 +63,16 @@ export const extractZipFiles = async (file: File): Promise<File[]> => {
     const extractedFiles: File[] = [];
 
     for (const filename of Object.keys(zip.files)) {
-      // Skip directories and non-CSV files
-      if (zip.files[filename].dir || !filename.toLowerCase().endsWith(".csv")) {
+      // Skip directories and non-CSV/TXT files
+      if (zip.files[filename].dir || 
+         (!filename.toLowerCase().endsWith(".csv") && !filename.toLowerCase().endsWith(".txt"))) {
         continue;
       }
 
       const content = await zip.files[filename].async("blob");
-      const extractedFile = new File([content], filename, { type: "text/csv" });
+      const extractedFile = new File([content], filename, { 
+        type: filename.toLowerCase().endsWith(".csv") ? "text/csv" : "text/plain" 
+      });
       extractedFiles.push(extractedFile);
     }
 
@@ -76,12 +84,18 @@ export const extractZipFiles = async (file: File): Promise<File[]> => {
   }
 };
 
-// Function to parse CSV content
-export const parseCSV = (content: string): Promise<{ data: any[]; columns: string[] }> => {
+// Function to parse CSV content with custom separator and encoding options
+export const parseCSV = (
+  content: string, 
+  options: ParseOptions = {}
+): Promise<{ data: any[]; columns: string[] }> => {
+  const separator = options.separator || ",";
+  
   return new Promise((resolve, reject) => {
     Papa.parse(content, {
       header: true,
       skipEmptyLines: true,
+      delimiter: separator,
       complete: (results) => {
         // Get column names from the first result and trim them
         const columns = (results.meta.fields || []).map(col => col.trim());

@@ -24,6 +24,7 @@ interface MergeConfiguratorProps {
 const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeComplete }) => {
   const [currentAction, setCurrentAction] = useState<string>(ACTION_TYPES.MERGE);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const selectedFiles = useMemo(() => files.filter(file => file.selected), [files]);
   
@@ -43,6 +44,10 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
     }
   };
 
+  const toggleSidebar = () => {
+    setSidebarCollapsed(!sidebarCollapsed);
+  };
+
   if (selectedFiles.length === 0) {
     return <EmptyFilesMessage />;
   }
@@ -51,9 +56,9 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
     <div className="space-y-6 animate-slide-up">
       <ActionTabs 
         currentAction={currentAction} 
-        setCurrentAction={setCurrentAction} 
-        sidebarCollapsed={false}
-        toggleSidebar={() => {}}
+        setCurrentAction={setCurrentAction}
+        sidebarCollapsed={sidebarCollapsed}
+        toggleSidebar={toggleSidebar}
       />
       
       <div className="w-full p-4 bg-card/40 backdrop-blur-sm rounded-lg">

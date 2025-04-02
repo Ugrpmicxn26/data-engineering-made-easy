@@ -44,9 +44,13 @@ const FileDropZone: React.FC<FileDropZoneProps> = ({ onFilesProcessed }) => {
                 });
               }
             }
-            // Process CSV files
-            else if (file.name.toLowerCase().endsWith(".csv")) {
+            // Process CSV and TXT files
+            else if (file.name.toLowerCase().endsWith(".csv") || file.name.toLowerCase().endsWith(".txt")) {
               const content = await readFileAsText(file);
+              // Default parsing options - will be adjustable later in the UI
+              const separator = file.name.toLowerCase().endsWith(".txt") ? "\t" : ",";
+              const encoding = file.name.toLowerCase().endsWith(".txt") ? "unicode_escape" : "utf-8";
+              
               const { data, columns } = await parseCSV(content);
               processedFiles.push({
                 id: `${file.name}-${Date.now()}`,
@@ -137,13 +141,17 @@ const FileDropZone: React.FC<FileDropZoneProps> = ({ onFilesProcessed }) => {
           </div>
           <h3 className="text-xl font-medium mb-2">Drop files here</h3>
           <p className="text-muted-foreground mb-4 text-center max-w-md">
-            Drag and drop ZIP or CSV files, or click to select
+            Drag and drop ZIP, CSV, or TXT files, or click to select
           </p>
           
           <div className="flex flex-wrap justify-center gap-3 mt-2 max-w-md text-sm">
             <div className="flex items-center px-3 py-1 bg-secondary rounded-full">
               <FileIcon className="w-3 h-3 mr-1 text-primary" />
               <span>.csv</span>
+            </div>
+            <div className="flex items-center px-3 py-1 bg-secondary rounded-full">
+              <FileIcon className="w-3 h-3 mr-1 text-primary" />
+              <span>.txt</span>
             </div>
             <div className="flex items-center px-3 py-1 bg-secondary rounded-full">
               <FileIcon className="w-3 h-3 mr-1 text-primary" />
@@ -162,7 +170,7 @@ const FileDropZone: React.FC<FileDropZoneProps> = ({ onFilesProcessed }) => {
                 type="file"
                 className="sr-only"
                 multiple
-                accept=".csv,.zip"
+                accept=".csv,.zip,.txt"
                 onChange={handleFileInputChange}
               />
             </label>
