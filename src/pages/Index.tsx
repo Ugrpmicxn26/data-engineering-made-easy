@@ -11,7 +11,7 @@ import ColumnTypeChanger from "@/components/ColumnTypeChanger";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { UploadIcon, Settings, Layers, PanelRight, SlidersHorizontal, PlusCircle, Code2, Type } from "lucide-react";
+import { UploadIcon, Settings, PanelRight, SlidersHorizontal, PlusCircle, Code2, Type } from "lucide-react";
 
 const Index = () => {
   const [files, setFiles] = useState<FileData[]>([]);
