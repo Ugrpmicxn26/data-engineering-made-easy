@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -5,16 +6,23 @@ import { Textarea } from "@/components/ui/textarea";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { FileData } from "@/utils/fileUtils";
 import { toast } from "sonner";
-import { FileCode, Play, Save, Eye } from "lucide-react";
+import { FileCode, Play, Save, Eye, Settings } from "lucide-react";
 import DataTable from "@/components/DataTable";
 import ConfigHeader from "./ConfigHeader";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Label } from "@/components/ui/label";
 
 interface PythonTabProps {
   files: FileData[];
   selectedFiles: FileData[];
   isProcessing: boolean;
   onComplete: (data: any[], updatedFiles?: FileData[], saveAsMergedFile?: boolean) => void;
+}
+
+interface FileParseOptions {
+  separator: string;
+  encoding: string;
 }
 
 const PythonTab: React.FC<PythonTabProps> = ({ 
@@ -30,6 +38,10 @@ const PythonTab: React.FC<PythonTabProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [outputName, setOutputName] = useState<string>("");
+  const [parseOptions, setParseOptions] = useState<FileParseOptions>({
+    separator: ",",
+    encoding: "utf-8"
+  });
 
   const defaultPythonCode = `# Python Notebook
 # Available packages: pandas, numpy, matplotlib, scikit-learn
@@ -93,6 +105,19 @@ df
         
         const baseName = file.name.replace(/\.[^/.]+$/, "");
         setOutputName(`${baseName}-python.csv`);
+        
+        // Set appropriate parse options based on file extension
+        if (file.name.toLowerCase().endsWith('.txt')) {
+          setParseOptions({
+            separator: "\t",
+            encoding: "unicode_escape"
+          });
+        } else {
+          setParseOptions({
+            separator: ",",
+            encoding: "utf-8"
+          });
+        }
       }
     }
   }, [selectedFileId, files]);
@@ -101,6 +126,13 @@ df
     setOutputName(e.target.value);
   };
 
+  const handleParseOptionChange = (option: keyof FileParseOptions, value: string) => {
+    setParseOptions(prev => ({
+      ...prev,
+      [option]: value
+    }));
+  };
+  
   const handleExecutePython = () => {
     setLoading(true);
     setError(null);
@@ -117,6 +149,11 @@ df
       try {
         let outputText = "";
         let resultData = [...file.data];
+        
+        // Add parsing options info to output
+        outputText += `# File parsing options:\n`;
+        outputText += `# Separator: "${parseOptions.separator}"\n`;
+        outputText += `# Encoding: "${parseOptions.encoding}"\n\n`;
         
         if (pythonCode.includes("df.head()")) {
           const headData = resultData.slice(0, 5);
@@ -456,9 +493,10 @@ df
           resultData = resultData.map(row => {
             const num = Number(row[numerator]) || 0;
             const den = Number(row[denominator]) || 1;
+            const result = den === 0 ? 0 : num / den;
             return {
               ...row,
-              [newCol]: String(den === 0 ? 0 : num / den)
+              [newCol]: String(result) // Convert number to string to fix TypeError
             };
           });
         }
@@ -589,6 +627,61 @@ df
                 className="min-w-[200px]"
               />
             </div>
+            
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="flex items-center gap-1">
+                  <Settings className="h-4 w-4" />
+                  Parse Options
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80">
+                <div className="space-y-4">
+                  <h4 className="font-medium">File Parsing Options</h4>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="separator">Separator</Label>
+                    <Select 
+                      value={parseOptions.separator} 
+                      onValueChange={(value) => handleParseOptionChange("separator", value)}
+                    >
+                      <SelectTrigger id="separator">
+                        <SelectValue placeholder="Select separator" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value=",">Comma (,)</SelectItem>
+                        <SelectItem value=";">Semicolon (;)</SelectItem>
+                        <SelectItem value="\t">Tab (\t)</SelectItem>
+                        <SelectItem value="|">Pipe (|)</SelectItem>
+                        <SelectItem value=" ">Space ( )</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Character used to separate columns</p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="encoding">Encoding</Label>
+                    <Select 
+                      value={parseOptions.encoding} 
+                      onValueChange={(value) => handleParseOptionChange("encoding", value)}
+                    >
+                      <SelectTrigger id="encoding">
+                        <SelectValue placeholder="Select encoding" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="utf-8">UTF-8</SelectItem>
+                        <SelectItem value="utf-16">UTF-16</SelectItem>
+                        <SelectItem value="ascii">ASCII</SelectItem>
+                        <SelectItem value="iso-8859-1">ISO-8859-1</SelectItem>
+                        <SelectItem value="unicode_escape">Unicode Escape</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">File character encoding</p>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+            
             <Button
               variant="secondary"
               size="sm"
