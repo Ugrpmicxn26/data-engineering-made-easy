@@ -44,6 +44,7 @@ export interface PivotConfig {
 export interface ParseOptions {
   separator?: string;
   encoding?: string;
+  forceStringType?: boolean;
 }
 
 // Function to read a file as text
@@ -90,6 +91,7 @@ export const parseCSV = (
   options: ParseOptions = {}
 ): Promise<{ data: any[]; columns: string[] }> => {
   const separator = options.separator || ",";
+  const forceStringType = options.forceStringType || false;
   
   return new Promise((resolve, reject) => {
     Papa.parse(content, {
@@ -100,18 +102,29 @@ export const parseCSV = (
         // Get column names from the first result and trim them
         const columns = (results.meta.fields || []).map(col => col.trim());
         
-        // Trim values in all rows
-        const trimmedData = results.data.map(row => {
-          const trimmedRow: Record<string, any> = {};
+        // Trim values in all rows and force all values to strings if requested
+        const processedData = results.data.map(row => {
+          const newRow: Record<string, any> = {};
           Object.keys(row).forEach(key => {
             const trimmedKey = key.trim();
-            const value = row[key];
-            trimmedRow[trimmedKey] = typeof value === 'string' ? value.trim() : value;
+            let value = row[key];
+            
+            // Trim string values
+            if (typeof value === 'string') {
+              value = value.trim();
+            }
+            
+            // Force all values to strings if forceStringType is true
+            if (forceStringType && value !== null && value !== undefined) {
+              value = String(value);
+            }
+            
+            newRow[trimmedKey] = value;
           });
-          return trimmedRow;
+          return newRow;
         });
         
-        resolve({ data: trimmedData, columns });
+        resolve({ data: processedData, columns });
       },
       error: (error) => {
         reject(error);

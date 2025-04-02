@@ -11,6 +11,7 @@ import ConfigHeader from "./ConfigHeader";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
+import { numToString } from "@/utils/typeFixes";
 
 interface PythonTabProps {
   files: FileData[];
@@ -495,7 +496,7 @@ df
             const result = den === 0 ? 0 : num / den;
             return {
               ...row,
-              [newCol]: String(result) // Explicitly convert to string to fix TypeScript error
+              [newCol]: numToString(result) // Using numToString to convert number to string
             };
           });
         }
