@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FileData } from "@/utils/fileUtils";
 import FileDropZone from "@/components/FileDropZone";
 import FileList from "@/components/FileList";
@@ -20,6 +19,17 @@ const Index = () => {
   const [previewFile, setPreviewFile] = useState<FileData | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [showUploader, setShowUploader] = useState(false);
+
+  useEffect(() => {
+    const savedTab = localStorage.getItem('zip-merge-active-tab');
+    if (savedTab) {
+      setActiveTab(savedTab);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('zip-merge-active-tab', activeTab);
+  }, [activeTab]);
 
   const handleFilesProcessed = (newFiles: FileData[]) => {
     setFiles(prev => [...prev, ...newFiles]);
@@ -109,12 +119,12 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-50">
+      <header className="border-b border-border bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-900/20 dark:to-indigo-900/20 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto py-4 px-4 sm:px-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-medium tracking-tight">
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/70">
+                <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">
                   Zip Merge Master
                 </span>
               </h1>
@@ -123,17 +133,17 @@ const Index = () => {
             
             <div className="flex items-center gap-2">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
-                <TabsList className="grid grid-cols-3 w-full sm:w-auto">
-                  <TabsTrigger value="upload" className="flex gap-1 items-center data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <TabsList className="grid grid-cols-3 w-full sm:w-auto gradient-tabs">
+                  <TabsTrigger value="upload" className="flex gap-1 items-center data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-500 data-[state=active]:text-white">
                     <UploadIcon className="h-3.5 w-3.5" />
                     <span className="hidden sm:inline">Upload</span>
                   </TabsTrigger>
-                  <TabsTrigger value="files" className="flex gap-1 items-center data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" disabled={files.length === 0}>
+                  <TabsTrigger value="files" className="flex gap-1 items-center data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-500 data-[state=active]:text-white" disabled={files.length === 0}>
                     <Settings className="h-3.5 w-3.5" />
                     <span className="hidden sm:inline">Configure</span>
                     {files.length > 0 && <span className="ml-1 text-xs bg-secondary text-secondary-foreground rounded-full px-1.5">{files.length}</span>}
                   </TabsTrigger>
-                  <TabsTrigger value="results" className="flex gap-1 items-center data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" disabled={mergedData.length === 0}>
+                  <TabsTrigger value="results" className="flex gap-1 items-center data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-500 data-[state=active]:text-white" disabled={mergedData.length === 0}>
                     <PanelRight className="h-3.5 w-3.5" />
                     <span className="hidden sm:inline">Results</span>
                   </TabsTrigger>
@@ -145,7 +155,12 @@ const Index = () => {
                   variant="outline" 
                   size="sm" 
                   onClick={toggleUploader}
-                  className={showUploader ? "bg-primary/10" : ""}
+                  className={cn(
+                    "transition-all duration-300",
+                    showUploader 
+                      ? "bg-primary/10 border-primary/30 text-primary" 
+                      : "hover:bg-blue-50 hover:text-blue-600"
+                  )}
                 >
                   <PlusCircle className="h-3.5 w-3.5 mr-1" />
                   <span className="hidden sm:inline">Add Files</span>
@@ -158,13 +173,13 @@ const Index = () => {
 
       <main className="flex-1 container mx-auto py-8 px-4 sm:px-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
-          <TabsContent value="upload" className="mt-0 focus-visible:outline-none focus-visible:ring-0 h-full">
+          <TabsContent value="upload" className="mt-0 focus-visible:outline-none focus-visible:ring-0 h-full animate-fade-in">
             <div className="max-w-3xl mx-auto">
               <div className="text-center mb-8">
-                <span className="inline-block rounded-full bg-primary/10 p-2 mb-3">
-                  <UploadIcon className="h-6 w-6 text-primary" />
+                <span className="inline-block rounded-full bg-gradient-to-br from-blue-500/20 to-indigo-500/20 p-2 mb-3">
+                  <UploadIcon className="h-6 w-6 text-blue-500" />
                 </span>
-                <h2 className="text-2xl font-medium mb-2">Upload Your Data</h2>
+                <h2 className="text-2xl font-medium mb-2 text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Upload Your Data</h2>
                 <p className="text-muted-foreground max-w-md mx-auto">
                   Upload ZIP or CSV files to start transforming and merging your data
                 </p>
@@ -173,7 +188,7 @@ const Index = () => {
               <FileDropZone onFilesProcessed={handleFilesProcessed} />
               
               {files.length > 0 && (
-                <div className="mt-8">
+                <div className="mt-8 animate-fade-in">
                   <FileList
                     files={files}
                     onToggleSelect={handleToggleSelect}
@@ -185,10 +200,10 @@ const Index = () => {
             </div>
           </TabsContent>
           
-          <TabsContent value="files" className="mt-0 focus-visible:outline-none focus-visible:ring-0 h-full">
+          <TabsContent value="files" className="mt-0 focus-visible:outline-none focus-visible:ring-0 h-full animate-fade-in">
             <div className="max-w-4xl mx-auto space-y-8">
               {showUploader && (
-                <div className="animate-fade-in border rounded-lg p-6 mb-6">
+                <div className="animate-fade-in border rounded-lg p-6 mb-6 glass-card">
                   <div className="text-center mb-4">
                     <h3 className="text-lg font-medium">Add More Files</h3>
                     <p className="text-sm text-muted-foreground">Upload additional files to process</p>
@@ -198,10 +213,10 @@ const Index = () => {
               )}
               
               <div className="text-center mb-8">
-                <span className="inline-block rounded-full bg-primary/10 p-2 mb-3">
-                  <Settings className="h-6 w-6 text-primary" />
+                <span className="inline-block rounded-full bg-gradient-to-br from-blue-500/20 to-indigo-500/20 p-2 mb-3">
+                  <Settings className="h-6 w-6 text-blue-500" />
                 </span>
-                <h2 className="text-2xl font-medium mb-2">Configure and Transform</h2>
+                <h2 className="text-2xl font-medium mb-2 text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Configure and Transform</h2>
                 <p className="text-muted-foreground max-w-md mx-auto">
                   Select files and choose transformation operations: merge, pivot, drop columns, or filter rows
                 </p>
@@ -232,7 +247,7 @@ const Index = () => {
             </div>
           </TabsContent>
           
-          <TabsContent value="results" className="mt-0 focus-visible:outline-none focus-visible:ring-0 h-full">
+          <TabsContent value="results" className="mt-0 focus-visible:outline-none focus-visible:ring-0 h-full animate-fade-in">
             <div className="max-w-6xl mx-auto space-y-6">
               {showUploader && (
                 <div className="animate-fade-in border rounded-lg p-6 mb-6">
@@ -245,10 +260,10 @@ const Index = () => {
               )}
               
               <div className="text-center mb-8">
-                <span className="inline-block rounded-full bg-primary/10 p-2 mb-3">
-                  <SlidersHorizontal className="h-6 w-6 text-primary" />
+                <span className="inline-block rounded-full bg-gradient-to-br from-blue-500/20 to-indigo-500/20 p-2 mb-3">
+                  <SlidersHorizontal className="h-6 w-6 text-blue-500" />
                 </span>
-                <h2 className="text-2xl font-medium mb-2">Analyze and Transform</h2>
+                <h2 className="text-2xl font-medium mb-2 text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Analyze and Transform</h2>
                 <p className="text-muted-foreground max-w-md mx-auto">
                   Explore your merged data with powerful tools for filtering, pivoting, and more
                 </p>
@@ -264,7 +279,7 @@ const Index = () => {
         </Tabs>
       </main>
 
-      <footer className="border-t border-border py-6 mt-auto">
+      <footer className="border-t border-border py-6 mt-auto bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-900/20 dark:to-indigo-900/20">
         <div className="container mx-auto px-4 sm:px-6 text-center text-sm text-muted-foreground">
           <p>Zip Merge Master — A data transformation tool</p>
           <p className="mt-1">All data processing happens in your browser for privacy</p>
