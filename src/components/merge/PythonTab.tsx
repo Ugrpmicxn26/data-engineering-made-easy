@@ -210,13 +210,13 @@ df
                 if (!stats['75%']) stats['75%'] = {};
                 if (!stats['max']) stats['max'] = {};
                 
-                stats['count'][col] = values.length;
+                stats['count'][col] = numToString(values.length);
                 stats['mean'][col] = mean.toFixed(6);
                 stats['std'][col] = calculateStdDev(values).toFixed(6);
                 stats['min'][col] = Math.min(...values).toFixed(6);
-                stats['25%'][col] = sortedValues[Math.floor(sortedValues.length * 0.25)].toFixed(6);
+                stats['25%'][col] = numToString(sortedValues[Math.floor(sortedValues.length * 0.25)].toFixed(6));
                 stats['50%'][col] = median.toFixed(6);
-                stats['75%'][col] = sortedValues[Math.floor(sortedValues.length * 0.75)].toFixed(6);
+                stats['75%'][col] = numToString(sortedValues[Math.floor(sortedValues.length * 0.75)].toFixed(6));
                 stats['max'][col] = Math.max(...values).toFixed(6);
               }
             });
