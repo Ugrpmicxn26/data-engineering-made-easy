@@ -415,7 +415,7 @@ function processDataTransformations(
       if (value.startsWith("'") || value.startsWith('"')) {
         value = value.replace(/['"]/g, '');
       } else if (!isNaN(Number(value))) {
-        value = Number(value);
+        value = numToString(Number(value));
       }
       
       outputText += `# Filling NA values in ${col} with ${value}\n`;
@@ -423,7 +423,7 @@ function processDataTransformations(
       resultData = resultData.map(row => ({
         ...row,
         [col]: row[col] === null || row[col] === undefined || String(row[col]).trim() === '' 
-          ? String(value) 
+          ? value 
           : row[col]
       }));
     }
