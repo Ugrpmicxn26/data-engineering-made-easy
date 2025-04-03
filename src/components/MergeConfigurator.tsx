@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from "react";
 import { FileData } from "@/utils/fileUtils";
 import { toast } from "sonner";
@@ -13,6 +14,7 @@ import PivotTab from "./merge/PivotTab";
 import RegexTransformTab from "./merge/RegexTransformTab";
 import GroupByTab from "./merge/GroupByTab";
 import PythonTab from "./merge/PythonTab";
+import ColumnFormatterTab from "./merge/ColumnFormatterTab";
 import EmptyFilesMessage from "./merge/EmptyFilesMessage";
 
 interface MergeConfiguratorProps {
@@ -135,6 +137,15 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
 
         {currentAction === ACTION_TYPES.PYTHON && (
           <PythonTab 
+            files={files} 
+            selectedFiles={selectedFiles} 
+            isProcessing={isProcessing} 
+            onComplete={handleComplete} 
+          />
+        )}
+        
+        {currentAction === ACTION_TYPES.COLUMN_FORMATTER && (
+          <ColumnFormatterTab 
             files={files} 
             selectedFiles={selectedFiles} 
             isProcessing={isProcessing} 

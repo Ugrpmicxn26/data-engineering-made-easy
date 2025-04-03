@@ -12,7 +12,8 @@ import {
   ChevronLeft,
   ChevronRight,
   GroupIcon,
-  FileCode
+  FileCode,
+  SplitSquareHorizontal
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -33,7 +34,8 @@ export const ACTION_TYPES = {
   PIVOT: "pivot",
   REGEX_TRANSFORM: "regexTransform",
   GROUP_BY: "groupBy",
-  PYTHON: "python"
+  PYTHON: "python",
+  COLUMN_FORMATTER: "columnFormatter"
 };
 
 const ActionTabs: React.FC<ActionTabsProps> = ({ 
@@ -87,6 +89,11 @@ const ActionTabs: React.FC<ActionTabsProps> = ({
       type: ACTION_TYPES.PYTHON,
       label: "Python Notebook",
       icon: FileCode
+    },
+    {
+      type: ACTION_TYPES.COLUMN_FORMATTER,
+      label: "Split & Format",
+      icon: SplitSquareHorizontal
     }
   ];
 
