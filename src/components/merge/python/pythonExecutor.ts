@@ -1,4 +1,3 @@
-
 import { ParseOptions, FileData } from "@/utils/fileUtils";
 import { numToString, stringToNum } from "@/utils/typeFixes";
 
@@ -268,7 +267,7 @@ function processDataTransformations(
         const [_, col1, col2] = colsMatch;
         resultData = resultData.map(row => ({
           ...row,
-          [newCol]: String(Number(row[col1]) * Number(row[col2]))
+          [newCol]: numToString(Number(row[col1]) * Number(row[col2]))
         }));
       }
     }

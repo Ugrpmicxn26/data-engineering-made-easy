@@ -34,6 +34,7 @@ export interface MergeTabState {
 export interface DropColumnsTabState {
   dropColumnsFile: string | null;
   columnsToExclude: string[];
+  mode: 'drop' | 'keep';  // New property to toggle between drop and keep modes
 }
 
 export interface DropRowsTabState {
