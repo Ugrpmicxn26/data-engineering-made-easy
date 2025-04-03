@@ -11,7 +11,7 @@ import ConfigHeader from "./ConfigHeader";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
-import { numToString } from "@/utils/typeFixes";
+import { numToString, stringToNum } from "@/utils/typeFixes";
 
 interface PythonTabProps {
   files: FileData[];
@@ -214,9 +214,11 @@ df
                 stats['mean'][col] = mean.toFixed(6);
                 stats['std'][col] = calculateStdDev(values).toFixed(6);
                 stats['min'][col] = Math.min(...values).toFixed(6);
-                stats['25%'][col] = numToString(sortedValues[Math.floor(sortedValues.length * 0.25)].toFixed(6));
+                const percentile25 = sortedValues[Math.floor(sortedValues.length * 0.25)].toFixed(6);
+                stats['25%'][col] = numToString(stringToNum(percentile25));
                 stats['50%'][col] = median.toFixed(6);
-                stats['75%'][col] = numToString(sortedValues[Math.floor(sortedValues.length * 0.75)].toFixed(6));
+                const percentile75 = sortedValues[Math.floor(sortedValues.length * 0.75)].toFixed(6);
+                stats['75%'][col] = numToString(stringToNum(percentile75));
                 stats['max'][col] = Math.max(...values).toFixed(6);
               }
             });
@@ -496,7 +498,7 @@ df
             const result = den === 0 ? 0 : num / den;
             return {
               ...row,
-              [newCol]: numToString(result) // Using numToString to convert number to string
+              [newCol]: numToString(result)
             };
           });
         }
