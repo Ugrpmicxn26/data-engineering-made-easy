@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { UserMenu } from "@/components/auth/UserMenu";
+import UserMenu from "@/components/auth/UserMenu";
 import { sessionStore } from "@/utils/sessionStore";
 import { FileData } from "@/utils/fileUtils";
 import { Link } from "react-router-dom";
@@ -84,6 +84,13 @@ const AIInteraction: React.FC = () => {
       provider: "Perplexity",
       description: "More powerful model with enhanced reasoning",
       requiresKey: true
+    },
+    {
+      id: "local-model",
+      name: "Local Model",
+      provider: "Open Source",
+      description: "Fast local processing with no API key required",
+      requiresKey: false
     }
   ];
 
@@ -107,7 +114,7 @@ const AIInteraction: React.FC = () => {
       const welcomeMessage: Message = {
         id: `system-${Date.now()}`,
         role: "assistant",
-        content: "Hello! I'm your AI assistant. Upload data files in the main app, and I can help you analyze them. Please provide your AI model API key in the settings tab to get started.",
+        content: "Hello! I'm your AI assistant. Upload data files in the main app, and I can help you analyze them. For cloud-based models, please provide your API key in the settings tab to get started. You can also use the local model which doesn't require an API key.",
         timestamp: Date.now()
       };
       setMessages([welcomeMessage]);
@@ -171,10 +178,28 @@ const AIInteraction: React.FC = () => {
     
     try {
       // Check if we have the required API key for the selected model
-      const apiKey = selectedModelInfo?.provider === "OpenAI" ? openAIKey : perplexityKey;
+      const apiKey = selectedModelInfo?.provider === "OpenAI" ? openAIKey : 
+                    selectedModelInfo?.provider === "Perplexity" ? perplexityKey : 
+                    null;
       
       if (!apiKey && selectedModelInfo?.requiresKey) {
         throw new Error(`Please provide a valid ${selectedModelInfo.provider} API key in the settings tab.`);
+      }
+      
+      // For the local model, don't require a key
+      if (selectedModel === "local-model" || !selectedModelInfo?.requiresKey) {
+        // Process locally
+        const responseContent = await processLocalAI(userMessage.content, fileData);
+        
+        const aiResponse: Message = {
+          id: `assistant-${Date.now()}`,
+          role: "assistant",
+          content: responseContent,
+          timestamp: Date.now()
+        };
+        
+        setMessages(prev => [...prev, aiResponse]);
+        return;
       }
       
       // In a real implementation, we would send a request to the AI API here
@@ -204,6 +229,39 @@ const AIInteraction: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  // Process data with local AI (open source model simulation)
+  const processLocalAI = async (prompt: string, fileData: FileData | null): Promise<string> => {
+    // Simulate network delay (shorter than cloud models)
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    if (!fileData) {
+      return "I don't see any data to analyze. Please select a file from the dropdown menu, or upload a file in the main application.";
+    }
+    
+    // Basic data analysis functions
+    if (prompt.toLowerCase().includes("statistics") || prompt.toLowerCase().includes("stats") || prompt.toLowerCase().includes("summary")) {
+      return `Here's a summary of the data in "${fileData.name}":\n\n` +
+        `- Total rows: ${fileData.data.length}\n` +
+        `- Columns: ${fileData.columns.join(", ")}\n` +
+        `- First few rows: ${JSON.stringify(fileData.data.slice(0, 2), null, 2)}`;
+    }
+    
+    // Count rows matching a condition
+    if (prompt.toLowerCase().includes("count") || prompt.toLowerCase().includes("how many")) {
+      // This is a very simplified implementation
+      const columnNames = fileData.columns;
+      return `The data in "${fileData.name}" has ${fileData.data.length} rows and ${columnNames.length} columns (${columnNames.join(", ")}). For more specific counting operations, please specify the column and condition.`;
+    }
+
+    // Generate a simple chart description (in a real implementation, you could actually generate charts)
+    if (prompt.toLowerCase().includes("chart") || prompt.toLowerCase().includes("plot") || prompt.toLowerCase().includes("graph")) {
+      return `For data visualization, I recommend using column "${fileData.columns[0]}" as your x-axis and exploring relationships with other columns. The data contains ${fileData.data.length} rows which should provide enough points for meaningful visualization.`;
+    }
+    
+    // Return a generic response about the data
+    return `I've analyzed the data in "${fileData.name}" using the local model. It contains ${fileData.data.length} rows and ${fileData.columns.length} columns. What specific insights would you like me to provide about this dataset?`;
+  };
   
   // Simulated AI response function (in a real app, this would call an actual AI API)
   const simulateAIResponse = async (prompt: string, fileData: FileData | null, model: AIModel | undefined, apiKey: string): Promise<string> => {
@@ -232,7 +290,7 @@ const AIInteraction: React.FC = () => {
     }
     
     // Return a generic response about the data
-    return `I've analyzed the data in "${fileData.name}". It contains ${fileData.data.length} rows and ${fileData.columns.length} columns. What specific insights would you like me to provide about this dataset?`;
+    return `I've analyzed the data in "${fileData.name}" using the ${model.name} model. It contains ${fileData.data.length} rows and ${fileData.columns.length} columns. What specific insights would you like me to provide about this dataset?`;
   };
   
   // Handle key press in the message input
@@ -259,9 +317,6 @@ const AIInteraction: React.FC = () => {
                   AI Data Assistant
                 </span>
               </h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <UserMenu />
             </div>
           </div>
         </div>
@@ -451,6 +506,38 @@ const AIInteraction: React.FC = () => {
                           }
                         </div>
                       </div>
+
+                      {/* Open Source Model */}
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Open Source Model</Label>
+                        <div className="space-y-2">
+                          {models
+                            .filter(model => model.provider === "Open Source")
+                            .map(model => (
+                              <div
+                                key={model.id}
+                                className={cn(
+                                  "border rounded-md p-3 cursor-pointer transition-all",
+                                  selectedModel === model.id
+                                    ? "border-primary bg-primary/5"
+                                    : "hover:bg-secondary/50"
+                                )}
+                                onClick={() => setSelectedModel(model.id)}
+                              >
+                                <div className="flex justify-between items-center">
+                                  <div className="font-medium">{model.name}</div>
+                                  {selectedModel === model.id && (
+                                    <Badge className="bg-gradient-to-r from-blue-600 to-indigo-600">Selected</Badge>
+                                  )}
+                                </div>
+                                <div className="text-sm text-muted-foreground mt-1">
+                                  {model.description}
+                                </div>
+                              </div>
+                            ))
+                          }
+                        </div>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -498,6 +585,14 @@ const AIInteraction: React.FC = () => {
                   />
                   <p className="text-xs text-muted-foreground">
                     Required for Llama 3.1 models
+                  </p>
+                </div>
+
+                {/* Local Model Info */}
+                <div className="pt-2 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+                  <h3 className="font-medium mb-1">Local Model</h3>
+                  <p className="text-sm text-muted-foreground">
+                    The local open source model doesn't require an API key. It processes data directly in your browser for basic analysis tasks.
                   </p>
                 </div>
 
