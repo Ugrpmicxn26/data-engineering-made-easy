@@ -522,7 +522,7 @@ const ColumnFormatterTab: React.FC<ActionTabProps> = ({
                             <p className="text-xs text-muted-foreground mb-2">After splitting by "{separator}":</p>
                             <div className="flex flex-wrap gap-2">
                               {formatParts.map((part, idx) => (
-                                <Badge key={idx} variant={["primary", "info", "purple", "teal", "pink", "warning"][idx % 6]} className="py-1 px-2">
+                                <Badge key={idx} variant={["primary", "info", "purple", "teal", "pink", "warning"][idx % 6] as any} className="py-1 px-2">
                                   <span className="text-xs mr-1 opacity-70">Part {idx}:</span> 
                                   <span className="font-mono">{part}</span>
                                 </Badge>
