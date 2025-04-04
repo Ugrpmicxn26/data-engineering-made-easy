@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { FileData } from "@/utils/fileUtils";
 import FileDropZone from "@/components/FileDropZone";
@@ -11,6 +12,7 @@ import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { UploadIcon, Settings, PanelRight, SlidersHorizontal, PlusCircle, Code2, Type } from "lucide-react";
+import { cn } from "@/lib/utils"; // Import cn utility
 
 const Index = () => {
   const [files, setFiles] = useState<FileData[]>([]);
