@@ -13,6 +13,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { UploadIcon, Settings, PanelRight, SlidersHorizontal, PlusCircle, Code2, Type } from "lucide-react";
 import { cn } from "@/lib/utils"; // Import cn utility
+import UserMenu from "@/components/auth/UserMenu";
+import { sessionStore } from "@/utils/sessionStore";
 
 const Index = () => {
   const [files, setFiles] = useState<FileData[]>([]);
@@ -22,16 +24,43 @@ const Index = () => {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [showUploader, setShowUploader] = useState(false);
 
+  // Load files from sessionStore if available
   useEffect(() => {
     const savedTab = localStorage.getItem('zip-merge-active-tab');
     if (savedTab) {
       setActiveTab(savedTab);
+    }
+    
+    // Try to load files from session storage
+    const savedFiles = sessionStore.getStore('files');
+    if (savedFiles && savedFiles.length > 0) {
+      setFiles(savedFiles);
+    }
+    
+    // Try to load merged data from session storage
+    const savedMergedData = sessionStore.getStore('mergedData');
+    if (savedMergedData && savedMergedData.length > 0) {
+      setMergedData(savedMergedData);
     }
   }, []);
 
   useEffect(() => {
     localStorage.setItem('zip-merge-active-tab', activeTab);
   }, [activeTab]);
+  
+  // Save files to sessionStore when they change
+  useEffect(() => {
+    if (files.length > 0) {
+      sessionStore.createStore('files', files);
+    }
+  }, [files]);
+  
+  // Save merged data to sessionStore when it changes
+  useEffect(() => {
+    if (mergedData.length > 0) {
+      sessionStore.createStore('mergedData', mergedData);
+    }
+  }, [mergedData]);
 
   const handleFilesProcessed = (newFiles: FileData[]) => {
     setFiles(prev => [...prev, ...newFiles]);
@@ -134,6 +163,8 @@ const Index = () => {
             </div>
             
             <div className="flex items-center gap-2">
+              <UserMenu />
+              
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
                 <TabsList className="grid grid-cols-3 w-full sm:w-auto gradient-tabs">
                   <TabsTrigger value="upload" className="flex gap-1 items-center data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-500 data-[state=active]:text-white">
