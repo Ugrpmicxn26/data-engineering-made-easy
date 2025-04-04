@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { FileData } from "@/utils/fileUtils";
 import FileDropZone from "@/components/FileDropZone";
@@ -11,10 +10,11 @@ import ColumnTypeChanger from "@/components/ColumnTypeChanger";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { UploadIcon, Settings, PanelRight, SlidersHorizontal, PlusCircle, Code2, Type } from "lucide-react";
-import { cn } from "@/lib/utils"; // Import cn utility
+import { UploadIcon, Settings, PanelRight, SlidersHorizontal, PlusCircle, Code2, Type, Bot } from "lucide-react";
+import { cn } from "@/lib/utils";
 import UserMenu from "@/components/auth/UserMenu";
 import { sessionStore } from "@/utils/sessionStore";
+import { Link } from "react-router-dom";
 
 const Index = () => {
   const [files, setFiles] = useState<FileData[]>([]);
@@ -24,20 +24,17 @@ const Index = () => {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [showUploader, setShowUploader] = useState(false);
 
-  // Load files from sessionStore if available
   useEffect(() => {
     const savedTab = localStorage.getItem('zip-merge-active-tab');
     if (savedTab) {
       setActiveTab(savedTab);
     }
     
-    // Try to load files from session storage
     const savedFiles = sessionStore.getStore('files');
     if (savedFiles && savedFiles.length > 0) {
       setFiles(savedFiles);
     }
     
-    // Try to load merged data from session storage
     const savedMergedData = sessionStore.getStore('mergedData');
     if (savedMergedData && savedMergedData.length > 0) {
       setMergedData(savedMergedData);
@@ -48,14 +45,12 @@ const Index = () => {
     localStorage.setItem('zip-merge-active-tab', activeTab);
   }, [activeTab]);
   
-  // Save files to sessionStore when they change
   useEffect(() => {
     if (files.length > 0) {
       sessionStore.createStore('files', files);
     }
   }, [files]);
   
-  // Save merged data to sessionStore when it changes
   useEffect(() => {
     if (mergedData.length > 0) {
       sessionStore.createStore('mergedData', mergedData);
@@ -133,7 +128,7 @@ const Index = () => {
       data: data,
       columns: data.length > 0 ? Object.keys(data[0]) : [],
       selected: true,
-      content: '', // Add the missing content property
+      content: '',
     };
     
     setFiles(prev => [...prev, newFile]);
@@ -163,6 +158,17 @@ const Index = () => {
             </div>
             
             <div className="flex items-center gap-2">
+              <Link to="/ai">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="hover:bg-blue-50 hover:text-blue-600 mr-2"
+                >
+                  <Bot className="h-3.5 w-3.5 mr-1" />
+                  <span>AI Assistant</span>
+                </Button>
+              </Link>
+              
               <UserMenu />
               
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">

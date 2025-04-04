@@ -29,12 +29,16 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
       // Simulate network delay
       await new Promise(resolve => setTimeout(resolve, 800));
       
-      login(email);
+      const user = login(email);
+      console.log("Logged in user:", user); // Add logging for debugging
       toast.success("Login successful!");
       
       if (onSuccess) {
         onSuccess();
       }
+      
+      // Force a page reload to update auth state throughout the app
+      window.location.reload();
     } catch (error) {
       console.error("Login failed:", error);
       toast.error("Login failed. Please try again.");

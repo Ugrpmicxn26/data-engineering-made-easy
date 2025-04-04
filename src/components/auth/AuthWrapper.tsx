@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { useSessionAuth } from "@/utils/sessionStore";
 import LoginForm from "./LoginForm";
 
@@ -8,7 +8,12 @@ interface AuthWrapperProps {
 }
 
 const AuthWrapper: React.FC<AuthWrapperProps> = ({ children }) => {
-  const { isAuthenticated } = useSessionAuth();
+  const { isAuthenticated, user } = useSessionAuth();
+  
+  // For debugging authentication state
+  useEffect(() => {
+    console.log("Authentication state:", { isAuthenticated, user });
+  }, [isAuthenticated, user]);
 
   if (!isAuthenticated) {
     return (

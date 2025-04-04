@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { useEffect } from "react";
 import AuthWrapper from "./components/auth/AuthWrapper";
+import AIInteraction from "./pages/AIInteraction";
 
 // Create a persistent query client that saves cache between refreshes
 const queryClient = new QueryClient({
@@ -38,6 +39,7 @@ const App = () => {
           <AuthWrapper>
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/ai" element={<AIInteraction />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
