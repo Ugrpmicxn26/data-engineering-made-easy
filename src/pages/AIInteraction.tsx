@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -296,7 +295,6 @@ const AIInteraction: React.FC = () => {
     }
   };
 
-  // Enhanced local AI data processing with improved unique value identification
   const processLocalAI = async (prompt: string, fileData: FileData | null): Promise<string> => {
     await new Promise(resolve => setTimeout(resolve, 600));
     
@@ -306,11 +304,9 @@ const AIInteraction: React.FC = () => {
 
     const promptLower = prompt.toLowerCase();
     
-    // NEW FEATURE: Handle explicit requests for unique values
     if (promptLower.includes("unique") || promptLower.includes("distinct") || promptLower.includes("list values") || 
         promptLower.includes("all values") || promptLower.includes("possible values")) {
       
-      // Try to identify which column the user is asking about
       let targetColumn = null;
       for (const col of fileData.columns) {
         if (promptLower.includes(col.toLowerCase())) {
@@ -320,7 +316,6 @@ const AIInteraction: React.FC = () => {
       }
       
       if (targetColumn) {
-        // Extract unique values from the column
         const uniqueValues = Array.from(new Set(
           fileData.data.map(row => row[targetColumn] || "(empty)")
         )).sort();
@@ -329,16 +324,13 @@ const AIInteraction: React.FC = () => {
         response += `I found ${uniqueValues.length} unique values in column "${targetColumn}" from dataset "${fileData.name}":\n\n`;
         
         if (uniqueValues.length <= 50) {
-          // Show all values if there are 50 or fewer
           response += uniqueValues.map(val => `- "${val}"`).join('\n');
         } else {
-          // Show the first 30 values and a count if there are many
           response += uniqueValues.slice(0, 30).map(val => `- "${val}"`).join('\n');
           response += `\n\n...and ${uniqueValues.length - 30} more unique values. `;
           response += `The dataset has ${fileData.data.length} total rows.`;
         }
         
-        // Add value counts for the most frequent values
         const valueCounts: {[key: string]: number} = {};
         fileData.data.forEach(row => {
           const val = row[targetColumn] || "(empty)";
@@ -358,7 +350,6 @@ const AIInteraction: React.FC = () => {
         
         return response;
       } else {
-        // No specific column mentioned
         return `Please specify which column you want to see unique values for. Available columns are: ${fileData.columns.join(", ")}`;
       }
     }
@@ -702,7 +693,6 @@ const AIInteraction: React.FC = () => {
               denom2 += dev2 * dev2;
             }
             
-            // Fixed type error by ensuring we have numbers before multiplication
             const denomProduct = Math.sqrt(Number(denom1)) * Math.sqrt(Number(denom2));
             const correlation = denomProduct !== 0 ? numerator / denomProduct : 0;
             
@@ -737,7 +727,6 @@ const AIInteraction: React.FC = () => {
           try {
             const contingencyTable: {[key: string]: {[key: string]: number}} = {};
             
-            // Count occurrences of each combination
             for (const row of fileData.data) {
               const val1 = String(row[col1] || "(empty)");
               const val2 = String(row[col2] || "(empty)");
