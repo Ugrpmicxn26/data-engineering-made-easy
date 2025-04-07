@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ import { MessageCircle, Bot, Send, Settings, Database, ArrowLeft, Upload, Sparkl
 import { cn } from "@/lib/utils";
 import AIFileUploader from "@/components/ai/AIFileUploader";
 import UserMenu from "@/components/auth/UserMenu";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 interface AIModel {
   id: string;
@@ -693,7 +695,7 @@ const AIInteraction: React.FC = () => {
               denom2 += dev2 * dev2;
             }
             
-            const denomProduct = Math.sqrt(Number(denom1)) * Math.sqrt(Number(denom2));
+            const denomProduct = Math.sqrt(denom1) * Math.sqrt(denom2);
             const correlation = denomProduct !== 0 ? numerator / denomProduct : 0;
             
             let relationshipStrength;
@@ -735,4 +737,434 @@ const AIInteraction: React.FC = () => {
                 contingencyTable[val1] = {};
               }
               
-              contingencyTable[
+              if (!contingencyTable[val1][val2]) {
+                contingencyTable[val1][val2] = 0;
+              }
+              
+              contingencyTable[val1][val2]++;
+            }
+            
+            const val1Categories = Object.keys(contingencyTable).slice(0, 5);
+            const val2Categories = new Set<string>();
+            
+            for (const val1 of val1Categories) {
+              for (const val2 of Object.keys(contingencyTable[val1])) {
+                val2Categories.add(val2);
+              }
+            }
+            
+            const top5Val2 = Array.from(val2Categories).slice(0, 5);
+            
+            let response = `Relationship between "${col1}" and "${col2}" in dataset "${fileData.name}":\n\n`;
+            response += "Contingency table (counts of occurrences):\n\n";
+            
+            // Create table header
+            response += `| ${col1} \\ ${col2} | ${top5Val2.join(' | ')} |\n`;
+            response += `| ${'---'.repeat(col1.length / 3)} | ${top5Val2.map(val => '---'.repeat(val.length / 3)).join(' | ')} |\n`;
+            
+            // Create table rows
+            for (const val1 of val1Categories) {
+              response += `| ${val1} | `;
+              response += top5Val2.map(val2 => contingencyTable[val1][val2] || 0).join(' | ');
+              response += ' |\n';
+            }
+            
+            return response;
+          } catch (e) {
+            return `Unable to analyze relationship between "${col1}" and "${col2}" due to an error.`;
+          }
+        }
+      }
+      
+      return `To analyze relationships, please specify two columns from your dataset. Available columns are: ${fileData.columns.join(", ")}`;
+    }
+    
+    // Default response if no specific analysis is triggered
+    return `I analyzed your data file "${fileData.name}" (${fileData.data.length} rows, ${fileData.columns.length} columns). To get insights, try asking specific questions about:
+    
+1. **Unique values**: "Show me all unique values in column X"
+2. **Statistics**: "Give me summary statistics for this dataset"
+3. **Filtering**: "Count rows where column X is greater than 10"
+4. **Visualizations**: "Suggest charts for columns X and Y"
+5. **Relationships**: "Is there a correlation between columns X and Y?"
+
+Available columns: ${fileData.columns.join(", ")}`;
+  };
+
+  const simulateAIResponse = async (prompt: string, fileData: FileData | null, model: AIModel, apiKey: string | null): Promise<string> => {
+    // This is a placeholder for actual API integration
+    // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 1000));
+    
+    if (!fileData) {
+      return "I don't see any data to analyze. Please select a file from the dropdown menu, or upload one using the upload tab.";
+    }
+    
+    return `I've analyzed your dataset "${fileData.name}" which contains ${fileData.data.length} rows and ${fileData.columns.length} columns.
+
+Based on your query: "${prompt}", here's what I found:
+
+The dataset contains columns: ${fileData.columns.join(", ")}
+
+Sample data (first 3 rows):
+\`\`\`
+${JSON.stringify(fileData.data.slice(0, 3), null, 2)}
+\`\`\`
+
+For more specific insights, try asking about particular columns or relationships between them.`;
+  };
+
+  const handleFilesProcessed = (newFiles: FileData[]) => {
+    setAvailableFiles(prevFiles => {
+      const updatedFiles = [...prevFiles, ...newFiles];
+      sessionStore.createStore('files', updatedFiles);
+      return updatedFiles;
+    });
+
+    if (newFiles.length > 0 && !selectedFile) {
+      setSelectedFile(newFiles[0].id);
+    }
+
+    toast.success(`${newFiles.length} file(s) added for AI analysis`);
+  };
+
+  useEffect(() => {
+    const files = sessionStore.getStore('files');
+    if (files && files.length > 0) {
+      setAvailableFiles(files);
+      if (files.length > 0 && !selectedFile) {
+        setSelectedFile(files[0].id);
+      }
+    }
+
+    const savedMessages = sessionStore.getStore('ai-chat-messages');
+    if (savedMessages && savedMessages.length > 0) {
+      setMessages(savedMessages);
+    } else {
+      const welcomeMessage: Message = {
+        id: `system-${Date.now()}`,
+        role: "assistant",
+        content: "Hello! I'm your AI data assistant. Upload data files in the main app or using the upload tab, and I can help you analyze them. You can use the local model without any API key, or choose cloud models by providing your API keys in the settings tab.",
+        timestamp: Date.now(),
+        model: "system"
+      };
+      setMessages([welcomeMessage]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      sessionStore.createStore('ai-chat-messages', messages);
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    if (openAIKey) {
+      localStorage.setItem("openai-api-key", openAIKey);
+    }
+    
+    if (perplexityKey) {
+      localStorage.setItem("perplexity-api-key", perplexityKey);
+    }
+
+    if (mistralKey) {
+      localStorage.setItem("mistral-api-key", mistralKey);
+    }
+  }, [openAIKey, perplexityKey, mistralKey]);
+
+  useEffect(() => {
+    let interval: number | undefined;
+    
+    if (isLoading) {
+      setLoadingProgress(0);
+      interval = window.setInterval(() => {
+        setLoadingProgress(prev => {
+          if (prev < 90) {
+            const increment = Math.random() * 10;
+            return Math.min(prev + increment, 90);
+          }
+          return prev;
+        });
+      }, 300);
+    } else {
+      setLoadingProgress(100);
+      const timeout = setTimeout(() => {
+        setLoadingProgress(0);
+      }, 500);
+      return () => clearTimeout(timeout);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isLoading]);
+
+  return (
+    <div className="flex flex-col h-screen bg-background">
+      <header className="border-b py-2 px-4 bg-card">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Link to="/" className="text-foreground hover:text-muted-foreground">
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+            <h1 className="font-semibold text-xl">Data AI Assistant</h1>
+          </div>
+          <UserMenu />
+        </div>
+      </header>
+      
+      <div className="flex flex-1 overflow-hidden">
+        <Tabs defaultValue="chat" className="flex flex-1 overflow-hidden">
+          <div className="w-[50px] sm:w-[200px] border-r bg-muted/40 flex flex-col">
+            <TabsList className="h-auto flex flex-col justify-start w-full p-1 bg-transparent">
+              <TabsTrigger value="chat" className="w-full justify-start gap-2 py-2">
+                <MessageCircle className="h-5 w-5 shrink-0" />
+                <span className="hidden sm:inline">Chat</span>
+              </TabsTrigger>
+              <TabsTrigger value="upload" className="w-full justify-start gap-2 py-2">
+                <Upload className="h-5 w-5 shrink-0" />
+                <span className="hidden sm:inline">Upload</span>
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="w-full justify-start gap-2 py-2">
+                <Settings className="h-5 w-5 shrink-0" />
+                <span className="hidden sm:inline">Settings</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
+          
+          <div className="flex-1 overflow-hidden flex flex-col">
+            <TabsContent value="chat" className="flex-1 flex flex-col mt-0 overflow-hidden">
+              <div className="p-4 border-b space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <Select value={selectedFile || ""} onValueChange={setSelectedFile} disabled={availableFiles.length === 0}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a data file" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableFiles.length > 0 ? (
+                        availableFiles.map(file => (
+                          <SelectItem key={file.id} value={file.id}>{file.name}</SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="none" disabled>No files available</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <Button variant="outline" size="icon" onClick={handleClearChat} title="Clear chat">
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                </div>
+                
+                <ToggleGroup type="single" value={selectedModel} onValueChange={(value) => value && setSelectedModel(value)} className="flex flex-wrap gap-1">
+                  {models.map(model => (
+                    <ToggleGroupItem 
+                      key={model.id} 
+                      value={model.id}
+                      className={cn(
+                        "flex items-center gap-1.5 h-8 text-xs rounded-md", 
+                        selectedModel === model.id ? "bg-primary text-primary-foreground" : ""
+                      )}
+                      aria-label={model.name}
+                    >
+                      <span className="w-4 text-center">{model.avatar}</span>
+                      <span className="hidden sm:inline">{model.name}</span>
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </div>
+              
+              <ScrollArea className="flex-1 p-4">
+                <div className="max-w-3xl mx-auto space-y-4 pb-20">
+                  {messages.length === 0 ? (
+                    <div className="text-center text-muted-foreground py-12">
+                      <Bot className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                      <p>No messages yet. Start a conversation with your data.</p>
+                    </div>
+                  ) : (
+                    messages.map(message => (
+                      <Card key={message.id} className={cn(
+                        "overflow-hidden",
+                        message.role === "user" ? "bg-muted" : "bg-card",
+                        message.role === "system" && "border-yellow-500/30 bg-yellow-500/5"
+                      )}>
+                        <CardContent className="p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="h-6 w-6 rounded-full flex items-center justify-center bg-primary text-primary-foreground shrink-0">
+                              {message.role === "user" ? "U" : message.role === "system" ? "S" : "A"}
+                            </div>
+                            <div className="text-sm font-medium">
+                              {message.role === "user" ? "You" : message.role === "system" ? "System" : "AI Assistant"}
+                            </div>
+                            {message.model && message.role === "assistant" && (
+                              <Badge variant="outline" className="text-xs">
+                                {getModelInfo(message.model).name}
+                              </Badge>
+                            )}
+                            <div className="text-xs text-muted-foreground ml-auto">
+                              {new Date(message.timestamp).toLocaleTimeString()}
+                            </div>
+                          </div>
+                          <div className="prose prose-sm dark:prose-invert max-w-none">
+                            {message.content.split('\n').map((line, i) => (
+                              <React.Fragment key={i}>
+                                {line}
+                                <br />
+                              </React.Fragment>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
+                  
+                  {isLoading && (
+                    <div className="space-y-2">
+                      <Progress value={loadingProgress} className="h-2" />
+                      <p className="text-sm text-center text-muted-foreground">AI is analyzing your data...</p>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+              
+              <div className="p-4 border-t bg-background">
+                <div className="max-w-3xl mx-auto">
+                  <form 
+                    className="flex items-end gap-2" 
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }}
+                  >
+                    <div className="flex-1">
+                      <Textarea 
+                        placeholder="Ask something about your data..."
+                        value={inputMessage}
+                        onChange={(e) => setInputMessage(e.target.value)}
+                        className="min-h-[60px] resize-none border"
+                        disabled={isLoading || availableFiles.length === 0}
+                      />
+                    </div>
+                    <Button 
+                      type="submit" 
+                      size="icon" 
+                      disabled={!inputMessage.trim() || isLoading || availableFiles.length === 0}
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </form>
+                </div>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="upload" className="flex-1 overflow-auto mt-0 p-4">
+              <div className="max-w-3xl mx-auto space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Upload Data Files</CardTitle>
+                    <CardDescription>
+                      Upload CSV, JSON, or Excel files for AI analysis
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <AIFileUploader onFilesProcessed={handleFilesProcessed} />
+                  </CardContent>
+                </Card>
+                
+                {availableFiles.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Available Files</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {availableFiles.map(file => (
+                          <div key={file.id} className="flex items-center justify-between p-2 border rounded-md">
+                            <div className="flex items-center gap-2">
+                              <Database className="h-4 w-4 text-muted-foreground" />
+                              <div>
+                                <p className="font-medium">{file.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {file.data.length} rows, {file.columns.length} columns
+                                </p>
+                              </div>
+                            </div>
+                            <Button variant="ghost" size="icon" onClick={() => handleRemoveFile(file.id)}>
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="settings" className="flex-1 overflow-auto mt-0 p-4">
+              <div className="max-w-3xl mx-auto space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>API Keys for AI Providers</CardTitle>
+                    <CardDescription>
+                      Add your API keys to use powerful cloud AI models
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="openai-key">OpenAI API Key</Label>
+                      <Input 
+                        id="openai-key"
+                        type="password" 
+                        placeholder="sk-..." 
+                        value={openAIKey}
+                        onChange={(e) => setOpenAIKey(e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Required for GPT-4o models</p>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="perplexity-key">Perplexity API Key</Label>
+                      <Input 
+                        id="perplexity-key"
+                        type="password" 
+                        placeholder="pplx-..." 
+                        value={perplexityKey}
+                        onChange={(e) => setPerplexityKey(e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Required for Llama models</p>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="mistral-key">Mistral AI API Key</Label>
+                      <Input 
+                        id="mistral-key"
+                        type="password" 
+                        placeholder="..." 
+                        value={mistralKey}
+                        onChange={(e) => setMistralKey(e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Required for Mistral models</p>
+                    </div>
+                  </CardContent>
+                  <CardFooter className="border-t pt-6 flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-sm text-muted-foreground">
+                      <p>
+                        Keys are stored locally in your browser.
+                      </p>
+                    </div>
+                    <Button variant="outline" size="sm">
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Test Keys
+                    </Button>
+                  </CardFooter>
+                </Card>
+              </div>
+            </TabsContent>
+          </div>
+        </Tabs>
+      </div>
+    </div>
+  );
+};
+
+export default AIInteraction;
