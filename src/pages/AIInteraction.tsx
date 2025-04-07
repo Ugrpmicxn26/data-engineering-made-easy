@@ -19,7 +19,6 @@ import { cn } from "@/lib/utils";
 import AIFileUploader from "@/components/ai/AIFileUploader";
 import UserMenu from "@/components/auth/UserMenu";
 
-// Define AI model types
 interface AIModel {
   id: string;
   name: string;
@@ -30,7 +29,6 @@ interface AIModel {
   avatar?: string;
 }
 
-// Define message types
 interface Message {
   id: string;
   role: "user" | "assistant" | "system";
@@ -40,12 +38,10 @@ interface Message {
 }
 
 const AIInteraction: React.FC = () => {
-  // State for API keys
   const [openAIKey, setOpenAIKey] = useState<string>(localStorage.getItem("openai-api-key") || "");
   const [perplexityKey, setPerplexityKey] = useState<string>(localStorage.getItem("perplexity-api-key") || "");
   const [mistralKey, setMistralKey] = useState<string>(localStorage.getItem("mistral-api-key") || "");
   
-  // State for chat and data
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -54,7 +50,6 @@ const AIInteraction: React.FC = () => {
   const [availableFiles, setAvailableFiles] = useState<FileData[]>([]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   
-  // Models definition with improved open source options
   const models: AIModel[] = [
     {
       id: "gpt-4o-mini",
@@ -115,40 +110,33 @@ const AIInteraction: React.FC = () => {
     }
   ];
 
-  // Function to handle file upload directly from AI page
   const handleFilesProcessed = (newFiles: FileData[]) => {
-    // Update available files list
     setAvailableFiles(prevFiles => {
       const updatedFiles = [...prevFiles, ...newFiles];
       sessionStore.createStore('files', updatedFiles);
       return updatedFiles;
     });
 
-    // Auto-select the first new file if we don't have a selection yet
     if (newFiles.length > 0 && !selectedFile) {
       setSelectedFile(newFiles[0].id);
     }
 
     toast.success(`${newFiles.length} file(s) added for AI analysis`);
   };
-  
-  // Load available files from session storage
+
   useEffect(() => {
     const files = sessionStore.getStore('files');
     if (files && files.length > 0) {
       setAvailableFiles(files);
-      // Pre-select the first file if available
       if (files.length > 0 && !selectedFile) {
         setSelectedFile(files[0].id);
       }
     }
-    
-    // Load previous messages if any
+
     const savedMessages = sessionStore.getStore('ai-chat-messages');
     if (savedMessages && savedMessages.length > 0) {
       setMessages(savedMessages);
     } else {
-      // Initialize with a welcome message
       const welcomeMessage: Message = {
         id: `system-${Date.now()}`,
         role: "assistant",
@@ -159,15 +147,13 @@ const AIInteraction: React.FC = () => {
       setMessages([welcomeMessage]);
     }
   }, []);
-  
-  // Save messages when they change
+
   useEffect(() => {
     if (messages.length > 0) {
       sessionStore.createStore('ai-chat-messages', messages);
     }
   }, [messages]);
-  
-  // Save API keys when they change
+
   useEffect(() => {
     if (openAIKey) {
       localStorage.setItem("openai-api-key", openAIKey);
@@ -181,8 +167,7 @@ const AIInteraction: React.FC = () => {
       localStorage.setItem("mistral-api-key", mistralKey);
     }
   }, [openAIKey, perplexityKey, mistralKey]);
-  
-  // Simulate loading progress for better UX
+
   useEffect(() => {
     let interval: number | undefined;
     
@@ -190,7 +175,6 @@ const AIInteraction: React.FC = () => {
       setLoadingProgress(0);
       interval = window.setInterval(() => {
         setLoadingProgress(prev => {
-          // Gradually increase until 90%, then wait for the actual response
           if (prev < 90) {
             const increment = Math.random() * 10;
             return Math.min(prev + increment, 90);
@@ -200,7 +184,6 @@ const AIInteraction: React.FC = () => {
       }, 300);
     } else {
       setLoadingProgress(100);
-      // Reset progress after a short delay
       const timeout = setTimeout(() => {
         setLoadingProgress(0);
       }, 500);
@@ -211,14 +194,12 @@ const AIInteraction: React.FC = () => {
       if (interval) clearInterval(interval);
     };
   }, [isLoading]);
-  
-  // Get the current selected file data
+
   const getSelectedFileData = () => {
     if (!selectedFile) return null;
     return availableFiles.find(file => file.id === selectedFile);
   };
-  
-  // Clear chat history
+
   const handleClearChat = () => {
     const welcomeMessage: Message = {
       id: `system-${Date.now()}`,
@@ -231,13 +212,11 @@ const AIInteraction: React.FC = () => {
     toast.success("Chat history cleared");
   };
 
-  // Handle removing a file
   const handleRemoveFile = (fileId: string) => {
     const updatedFiles = availableFiles.filter(file => file.id !== fileId);
     setAvailableFiles(updatedFiles);
     sessionStore.createStore('files', updatedFiles);
     
-    // If the removed file was selected, select another file or null
     if (selectedFile === fileId) {
       setSelectedFile(updatedFiles.length > 0 ? updatedFiles[0].id : null);
     }
@@ -245,7 +224,6 @@ const AIInteraction: React.FC = () => {
     toast.success("File removed from AI analysis");
   };
 
-  // Get model display information
   const getModelInfo = (modelId: string) => {
     return models.find(model => model.id === modelId) || {
       name: "Unknown Model",
@@ -253,8 +231,7 @@ const AIInteraction: React.FC = () => {
       avatar: "❓"
     };
   };
-  
-  // Handle sending a message to the AI
+
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
     
@@ -269,12 +246,10 @@ const AIInteraction: React.FC = () => {
     setInputMessage("");
     setIsLoading(true);
     
-    // Get the selected file data
     const fileData = getSelectedFileData();
     const selectedModelInfo = models.find(model => model.id === selectedModel);
     
     try {
-      // Check if we have the required API key for the selected model
       const apiKey = selectedModelInfo?.provider === "OpenAI" ? openAIKey : 
                     selectedModelInfo?.provider === "Perplexity" ? perplexityKey :
                     selectedModelInfo?.provider === "Mistral AI" ? mistralKey :
@@ -286,13 +261,9 @@ const AIInteraction: React.FC = () => {
       
       let responseContent = "";
       
-      // For the local model, don't require a key
       if (selectedModel === "local-model" || !selectedModelInfo?.requiresKey) {
-        // Process locally
         responseContent = await processLocalAI(userMessage.content, fileData);
       } else {
-        // In a real implementation, we would send a request to the AI API here
-        // For this demo, we'll simulate a response
         responseContent = await simulateAIResponse(userMessage.content, fileData, selectedModelInfo, apiKey);
       }
       
@@ -306,7 +277,6 @@ const AIInteraction: React.FC = () => {
       
       setMessages(prev => [...prev, aiResponse]);
     } catch (error: any) {
-      // Add an error message to the chat
       const errorMessage: Message = {
         id: `system-error-${Date.now()}`,
         role: "system",
@@ -322,26 +292,20 @@ const AIInteraction: React.FC = () => {
     }
   };
 
-  // Enhanced local AI data processing
   const processLocalAI = async (prompt: string, fileData: FileData | null): Promise<string> => {
-    // Simulate network delay (shorter than cloud models)
     await new Promise(resolve => setTimeout(resolve, 600));
     
     if (!fileData) {
       return "I don't see any data to analyze. Please select a file from the dropdown menu, or upload a file in the main application or in the Upload tab.";
     }
 
-    // Format checking to recognize more user intents
     const promptLower = prompt.toLowerCase();
     
-    // Enhanced data analysis functions for better responsiveness
     if (promptLower.includes("statistics") || promptLower.includes("stats") || promptLower.includes("summary") || 
         promptLower.includes("describe") || promptLower.includes("overview")) {
-      // Calculate some basic statistics about the data
       const numRows = fileData.data.length;
       const numCols = fileData.columns.length;
       
-      // Calculate some sample statistics if there's numerical data
       let numericalStats = "";
       try {
         const numericColumns = fileData.columns.filter(col => 
@@ -351,7 +315,7 @@ const AIInteraction: React.FC = () => {
         if (numericColumns.length > 0) {
           numericalStats = "\n\n**Numeric Column Statistics:**\n";
           
-          for (const col of numericColumns.slice(0, 5)) { // Increased from 3 to 5 columns
+          for (const col of numericColumns.slice(0, 5)) {
             const values = fileData.data
               .map(row => parseFloat(row[col]))
               .filter(val => !isNaN(val));
@@ -374,14 +338,12 @@ const AIInteraction: React.FC = () => {
         numericalStats = "\n\nCould not calculate numerical statistics for this dataset.";
       }
 
-      // Identify categorical columns and report
       let categoricalStats = "";
       try {
         const categoricalColumns = fileData.columns.filter(col => {
           const uniqueValues = new Set(fileData.data.map(row => row[col]));
-          // Consider columns with fewer unique values as categorical
           return uniqueValues.size < Math.min(20, fileData.data.length * 0.2);
-        }).slice(0, 3); // Take up to 3 categorical columns
+        }).slice(0, 3);
         
         if (categoricalColumns.length > 0) {
           categoricalStats = "\n\n**Categorical Column Distributions:**\n";
@@ -395,14 +357,13 @@ const AIInteraction: React.FC = () => {
             
             const topValues = Object.entries(valueCounts)
               .sort((a, b) => b[1] - a[1])
-              .slice(0, 3); // Show top 3 values
+              .slice(0, 3);
               
             categoricalStats += `\n- **${col}**: ${topValues.map(([val, count]) => 
               `"${val}": ${count} rows (${(count/fileData.data.length*100).toFixed(1)}%)`).join(', ')}`;
           }
         }
       } catch (e) {
-        // Skip if there's an error analyzing categorical data
       }
       
       return `# Data Summary for "${fileData.name}"\n\n` +
@@ -414,11 +375,9 @@ const AIInteraction: React.FC = () => {
         `**Sample Data (first 3 rows):**\n\`\`\`\n${JSON.stringify(fileData.data.slice(0, 3), null, 2)}\n\`\`\``;
     }
     
-    // Enhanced counting and filtering
     if (promptLower.includes("count") || promptLower.includes("how many") || promptLower.includes("filter")) {
       const columnNames = fileData.columns;
       
-      // Try to extract column name and value from the prompt
       let targetColumn = null;
       for (const col of columnNames) {
         if (promptLower.includes(col.toLowerCase())) {
@@ -428,7 +387,9 @@ const AIInteraction: React.FC = () => {
       }
       
       if (targetColumn) {
-        // Look for comparison terms in the prompt
+        let operation = null;
+        let comparisonValue = null;
+        
         const comparisonTerms = [
           { term: "greater than", op: ">" },
           { term: "more than", op: ">" },
@@ -445,18 +406,13 @@ const AIInteraction: React.FC = () => {
           { term: "ends with", op: "endsWith" }
         ];
         
-        let operation = null;
-        let comparisonValue = null;
-        
         for (const { term, op } of comparisonTerms) {
           if (promptLower.includes(term)) {
             operation = op;
             
-            // Try to extract a value after the operator
             const termIndex = promptLower.indexOf(term);
             const afterTerm = prompt.slice(termIndex + term.length).trim();
             
-            // Look for a number or a quoted string
             const numberMatch = afterTerm.match(/^[\s]*([0-9.]+)/);
             const stringMatch = afterTerm.match(/^[\s]*['"]([^'"]+)['"]/);
             const wordMatch = afterTerm.match(/^[\s]*([^\s.,?!]+)/);
@@ -531,7 +487,6 @@ const AIInteraction: React.FC = () => {
           }
         }
         
-        // If no specific operation was found but we have a column, show distribution
         const valueCounts: {[key: string]: number} = {};
         fileData.data.forEach(row => {
           const val = row[targetColumn!] || "(empty)";
@@ -543,7 +498,6 @@ const AIInteraction: React.FC = () => {
           
         let response = `Here's the distribution of values in column "${targetColumn}" from dataset "${fileData.name}":\n\n`;
         
-        // Only show all values if there are 10 or fewer unique values
         const valuesToShow = topValues.length <= 10 ? topValues : topValues.slice(0, 10);
         response += valuesToShow.map(([val, count]) => `- "${val}": ${count} rows (${(count/fileData.data.length*100).toFixed(1)}%)`).join('\n');
         
@@ -556,11 +510,9 @@ const AIInteraction: React.FC = () => {
       
       return `The dataset "${fileData.name}" has ${fileData.data.length} rows and ${columnNames.length} columns. To filter or count specific values, please specify a column name in your question. Available columns are: ${columnNames.join(", ")}`;
     }
-
-    // Improved chart suggestion
+    
     if (promptLower.includes("chart") || promptLower.includes("plot") || promptLower.includes("graph") || 
         promptLower.includes("visualization") || promptLower.includes("visualize")) {
-      // Identify potential columns for visualization
       const numericColumns = fileData.columns.filter(col => 
         fileData.data.some(row => !isNaN(parseFloat(row[col])))
       );
@@ -570,7 +522,6 @@ const AIInteraction: React.FC = () => {
         return uniqueValues.size < Math.min(fileData.data.length / 5, 20);
       });
       
-      // Check if the prompt mentions specific columns
       let requestedColumns = [];
       for (const col of fileData.columns) {
         if (promptLower.includes(col.toLowerCase())) {
@@ -578,14 +529,13 @@ const AIInteraction: React.FC = () => {
         }
       }
       
-      // If specific columns are requested, prioritize those
       if (requestedColumns.length > 0) {
         const requestedNumeric = requestedColumns.filter(col => numericColumns.includes(col));
         const requestedCategorical = requestedColumns.filter(col => categoricalColumns.includes(col));
         
         if (requestedNumeric.length > 0 && requestedCategorical.length > 0) {
           return `For visualizing the relationship between "${requestedCategorical[0]}" and "${requestedNumeric[0]}" in dataset "${fileData.name}", I recommend:\n\n` +
-            `1. **Bar Chart**: Use "${requestedCategorical[0]}" on the x-axis and "${requestedNumeric[0]}" on the y-axis to compare values across categories.\n` +
+            `1. **Bar Chart**: Use "${requestedCategorical[0]}" on x-axis and "${requestedNumeric[0]}" on y-axis to compare values across categories.\n` +
             `2. **Box Plot**: This would show the distribution of "${requestedNumeric[0]}" for each value of "${requestedCategorical[0]}".\n\n` +
             `Here's a sample of the data to help you understand the relationship:\n\`\`\`\n${
               JSON.stringify(fileData.data.slice(0, 3).map(row => ({
@@ -621,7 +571,6 @@ const AIInteraction: React.FC = () => {
         }
       }
       
-      // Generic visualization recommendations
       if (numericColumns.length > 0 && categoricalColumns.length > 0) {
         return `For data visualization of "${fileData.name}", I recommend:\n\n` +
           `1. **Bar chart**: Use "${categoricalColumns[0]}" on x-axis and "${numericColumns[0]}" on y-axis\n` + 
@@ -648,11 +597,9 @@ const AIInteraction: React.FC = () => {
       return `For data visualization of "${fileData.name}", I would need more information about what aspects of the data you want to visualize. The dataset contains ${fileData.data.length} rows and columns: ${fileData.columns.join(", ")}`;
     }
     
-    // Improved correlation and relationship detection
     if (promptLower.includes("correlate") || promptLower.includes("relationship") || promptLower.includes("related") ||
         promptLower.includes("connection") || promptLower.includes("compare")) {
       
-      // Try to identify which columns to compare
       let columnsToCompare = [];
       for (const col of fileData.columns) {
         if (promptLower.includes(col.toLowerCase())) {
@@ -661,16 +608,13 @@ const AIInteraction: React.FC = () => {
       }
       
       if (columnsToCompare.length >= 2) {
-        // Two specific columns mentioned
-        const col1 = columnsToCompare[0];
-        const col2 = columnsToCompare[1];
+        let col1 = columnsToCompare[0];
+        let col2 = columnsToCompare[1];
         
-        // Check if both are numeric
         const isCol1Numeric = fileData.data.some(row => !isNaN(parseFloat(row[col1])));
         const isCol2Numeric = fileData.data.some(row => !isNaN(parseFloat(row[col2])));
         
         if (isCol1Numeric && isCol2Numeric) {
-          // Calculate correlation for numeric columns
           try {
             const validPairs = fileData.data
               .map(row => [parseFloat(row[col1]), parseFloat(row[col2])])
@@ -680,11 +624,9 @@ const AIInteraction: React.FC = () => {
               return `Not enough valid numeric pairs to calculate correlation between "${col1}" and "${col2}".`;
             }
             
-            // Calculate means
             const mean1 = validPairs.reduce((sum, pair) => sum + pair[0], 0) / validPairs.length;
             const mean2 = validPairs.reduce((sum, pair) => sum + pair[1], 0) / validPairs.length;
             
-            // Calculate correlation coefficient
             let numerator = 0;
             let denom1 = 0;
             let denom2 = 0;
@@ -697,7 +639,6 @@ const AIInteraction: React.FC = () => {
               denom2 += dev2 * dev2;
             }
             
-            // Fix for line 619 - ensure proper type conversion for the division operation
             const denomProduct = Math.sqrt(denom1) * Math.sqrt(denom2);
             const correlation = denomProduct !== 0 ? numerator / denomProduct : 0;
             
@@ -729,11 +670,511 @@ const AIInteraction: React.FC = () => {
             return `Unable to calculate correlation between "${col1}" and "${col2}" due to an error. Please check that both columns contain valid numerical data.`;
           }
         } else {
-          // For categorical relationships, create a contingency table
           try {
             const contingencyTable: {[key: string]: {[key: string]: number}} = {};
             
-            // Count occurrences of each combination
             for (const row of fileData.data) {
               const val1 = String(row[col1] || "(empty)");
               const val2 = String(row[col2] || "(empty)");
+              
+              if (!contingencyTable[val1]) {
+                contingencyTable[val1] = {};
+              }
+              
+              contingencyTable[val1][val2] = (contingencyTable[val1][val2] || 0) + 1;
+            }
+            
+            let tableOutput = `### Relationship between "${col1}" and "${col2}" in dataset "${fileData.name}"\n\n`;
+            tableOutput += "Here's a contingency table showing how these columns relate:\n\n";
+            
+            const uniqueVal1 = Object.keys(contingencyTable);
+            const uniqueVal2 = new Set<string>();
+            
+            for (const val1 in contingencyTable) {
+              for (const val2 in contingencyTable[val1]) {
+                uniqueVal2.add(val2);
+              }
+            }
+            
+            const uniqueVal2Array = Array.from(uniqueVal2).sort();
+            
+            tableOutput += `| ${col1} \\ ${col2} | ${uniqueVal2Array.join(' | ')} | Total |\n`;
+            tableOutput += `| ${'-'.repeat(col1.length)} | ${uniqueVal2Array.map(val => '-'.repeat(val.length)).join(' | ')} | ----- |\n`;
+            
+            for (const val1 of uniqueVal1) {
+              let rowTotal = 0;
+              let row = `| ${val1} | `;
+              
+              for (const val2 of uniqueVal2Array) {
+                const count = contingencyTable[val1][val2] || 0;
+                rowTotal += count;
+                row += `${count} | `;
+              }
+              
+              row += `${rowTotal} |`;
+              tableOutput += row + '\n';
+            }
+            
+            tableOutput += "\n### Insights:\n\n";
+            
+            let allCombinations: [string, string, number][] = [];
+            for (const val1 in contingencyTable) {
+              for (const val2 in contingencyTable[val1]) {
+                allCombinations.push([val1, val2, contingencyTable[val1][val2]]);
+              }
+            }
+            
+            allCombinations.sort((a, b) => b[2] - a[2]);
+            
+            tableOutput += "Top combinations:\n";
+            for (let i = 0; i < Math.min(3, allCombinations.length); i++) {
+              const [val1, val2, count] = allCombinations[i];
+              const percentage = (count / fileData.data.length * 100).toFixed(1);
+              tableOutput += `- ${val1} with ${val2}: ${count} occurrences (${percentage}% of data)\n`;
+            }
+            
+            return tableOutput;
+          } catch (e) {
+            return `Error analyzing relationship between "${col1}" and "${col2}": ${e}`;
+          }
+        }
+      }
+    }
+    
+    return `I can help analyze your data from "${fileData.name}". You can ask me to:
+    
+1. Provide statistics or a summary of the data
+2. Count or filter rows based on specific criteria
+3. Suggest appropriate charts for visualization
+4. Analyze relationships between columns
+
+Your file has ${fileData.data.length} rows and columns: ${fileData.columns.join(", ")}`;
+  };
+
+  const simulateAIResponse = async (
+    prompt: string, 
+    fileData: FileData | null, 
+    modelInfo: AIModel,
+    apiKey: string | null
+  ): Promise<string> => {
+    const delay = modelInfo.id.includes("large") ? 3000 : 1500;
+    await new Promise(resolve => setTimeout(resolve, delay));
+    
+    if (!fileData) {
+      return "I don't have any data to analyze. Please upload or select a file first.";
+    }
+    
+    const modelName = modelInfo.name;
+    const promptLower = prompt.toLowerCase();
+    
+    if (promptLower.includes("summary") || promptLower.includes("overview")) {
+      return `📊 **Data Summary** (analyzed with ${modelName})
+      
+Your file "${fileData.name}" contains ${fileData.data.length} rows and ${fileData.columns.length} columns.
+
+Column names: ${fileData.columns.join(", ")}
+
+Here's a sample of the first few rows:
+\`\`\`
+${JSON.stringify(fileData.data.slice(0, 2), null, 2)}
+\`\`\`
+
+Would you like me to perform a more detailed analysis on any specific aspect of this dataset?`;
+    }
+    
+    if (promptLower.includes("compare") || promptLower.includes("correlation")) {
+      return `📈 **Correlation Analysis** (performed with ${modelName})
+      
+To properly analyze correlations in your dataset "${fileData.name}", I'd need to know which specific columns you want to compare.
+
+Available columns: ${fileData.columns.join(", ")}
+
+Please specify which columns you'd like to compare, for example: "Compare the correlation between [column1] and [column2]"`;
+    }
+    
+    return `I've analyzed your request about "${prompt.substring(0, 30)}..." using the ${modelName} model.
+
+To provide the most helpful analysis of your data in "${fileData.name}", could you be more specific about what you're looking for? 
+
+You can ask me to:
+- Summarize the dataset
+- Find statistical patterns
+- Identify outliers
+- Analyze specific columns
+- Compare different fields
+- Suggest visualizations
+
+Let me know how I can help!`;
+  };
+
+  return (
+    <div className="flex flex-col w-full h-screen overflow-hidden bg-background">
+      <header className="flex items-center justify-between p-4 border-b">
+        <div className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2 text-primary hover:opacity-80 transition-opacity">
+            <ArrowLeft className="w-5 h-5" />
+            <span className="font-medium">Back to App</span>
+          </Link>
+        </div>
+        <div className="flex items-center gap-3">
+          <Badge variant="outline" className="flex items-center gap-1 py-1.5">
+            <Bot className="w-3.5 h-3.5" />
+            <span>AI Assistant</span>
+          </Badge>
+          <UserMenu />
+        </div>
+      </header>
+
+      <div className="flex flex-1 overflow-hidden">
+        <Tabs defaultValue="chat" className="flex flex-1 overflow-hidden">
+          <div className="w-full h-full flex flex-col">
+            <div className="border-b">
+              <div className="container mx-auto px-4">
+                <TabsList className="grid grid-cols-3 my-2">
+                  <TabsTrigger value="chat" className="flex items-center gap-1.5">
+                    <MessageCircle className="w-4 h-4" />
+                    <span>Chat</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="upload" className="flex items-center gap-1.5">
+                    <Upload className="w-4 h-4" />
+                    <span>Upload</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="settings" className="flex items-center gap-1.5">
+                    <Settings className="w-4 h-4" />
+                    <span>Settings</span>
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-hidden">
+              <TabsContent value="chat" className="h-full flex flex-col mt-0">
+                <div className="flex flex-col md:flex-row flex-1 overflow-hidden p-2 md:p-4 gap-4 container mx-auto">
+                  <Card className="flex-1 flex flex-col h-full">
+                    <CardHeader className="px-4 py-3 flex flex-row items-center justify-between space-y-0 gap-2">
+                      <div>
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          <Bot className="w-5 h-5 text-primary" />
+                          Data Analysis Chat
+                        </CardTitle>
+                        <CardDescription>
+                          Ask questions about your data files
+                        </CardDescription>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={handleClearChat}
+                        className="h-8"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                        Clear Chat
+                      </Button>
+                    </CardHeader>
+                    <Separator />
+                    {loadingProgress > 0 && (
+                      <div className="px-4 py-2 bg-muted/50">
+                        <Progress value={loadingProgress} className="h-1.5" />
+                      </div>
+                    )}
+                    <CardContent className="flex-1 overflow-hidden p-0">
+                      <ScrollArea className="h-full">
+                        <div className="flex flex-col p-4 pb-6 space-y-6">
+                          {messages.map((message) => (
+                            <div 
+                              key={message.id} 
+                              className={cn(
+                                "flex flex-col max-w-full",
+                                message.role === "user" ? "items-end" : "items-start"
+                              )}
+                            >
+                              <div 
+                                className={cn(
+                                  "px-4 py-3 rounded-lg shadow-sm",
+                                  message.role === "user" 
+                                    ? "bg-primary text-primary-foreground" 
+                                    : message.role === "system"
+                                    ? "bg-muted border"
+                                    : "bg-card border"
+                                )}
+                              >
+                                {message.role !== "user" && (
+                                  <div className="flex items-center gap-1.5 mb-2">
+                                    <span className="text-xs font-medium bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                                      {message.model && message.model !== "system" ? getModelInfo(message.model).avatar : "🤖"} {
+                                        message.model && message.model !== "system" 
+                                          ? getModelInfo(message.model).name 
+                                          : message.model === "error" 
+                                            ? "Error" 
+                                            : "Assistant"
+                                      }
+                                    </span>
+                                  </div>
+                                )}
+                                <div className="prose prose-sm dark:prose-invert max-w-none">
+                                  {message.content.split('\n').map((line, i) => (
+                                    <React.Fragment key={i}>
+                                      {line}
+                                      {i < message.content.split('\n').length - 1 && <br />}
+                                    </React.Fragment>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-1 px-1">
+                                {new Date(message.timestamp).toLocaleTimeString()}
+                              </div>
+                            </div>
+                          ))}
+                          {isLoading && (
+                            <div className="flex items-start">
+                              <div className="bg-card border px-4 py-3 rounded-lg">
+                                <div className="flex items-center gap-1.5 mb-2">
+                                  <span className="text-xs font-medium bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                                    {getModelInfo(selectedModel).avatar} {getModelInfo(selectedModel).name}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                                  <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                                  <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce"></span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </CardContent>
+                    <Separator />
+                    <CardFooter className="p-4">
+                      <form 
+                        className="flex w-full items-center gap-2"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }}
+                      >
+                        <Textarea
+                          placeholder="Ask something about your data..."
+                          value={inputMessage}
+                          onChange={(e) => setInputMessage(e.target.value)}
+                          className="flex-1 min-h-10 h-10"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleSendMessage();
+                            }
+                          }}
+                        />
+                        <Button 
+                          type="submit" 
+                          disabled={isLoading || !inputMessage.trim()}
+                          size="icon"
+                        >
+                          <Send className="w-4 h-4" />
+                        </Button>
+                      </form>
+                    </CardFooter>
+                  </Card>
+
+                  <div className="w-full md:w-72 flex flex-col gap-4">
+                    <Card>
+                      <CardHeader className="px-4 py-3">
+                        <CardTitle className="text-base">Model Selection</CardTitle>
+                      </CardHeader>
+                      <CardContent className="px-4 py-2 space-y-4">
+                        <Select
+                          value={selectedModel}
+                          onValueChange={setSelectedModel}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select AI Model" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {models.map((model) => (
+                              <SelectItem key={model.id} value={model.id}>
+                                <div className="flex items-center gap-2">
+                                  <span>{model.avatar}</span>
+                                  <span>{model.name}</span>
+                                  {model.isOpenSource && (
+                                    <Badge variant="outline" className="ml-auto text-xs">Open Source</Badge>
+                                  )}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+
+                        <div className="text-xs text-muted-foreground">
+                          {getModelInfo(selectedModel).description}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="px-4 py-3">
+                        <CardTitle className="text-base flex items-center justify-between">
+                          <span>Selected Data</span>
+                          {availableFiles.length > 0 && (
+                            <Badge className="ml-auto">
+                              {availableFiles.length} file{availableFiles.length !== 1 ? 's' : ''}
+                            </Badge>
+                          )}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="px-4 pt-2 pb-4">
+                        {availableFiles.length > 0 ? (
+                          <div className="space-y-4">
+                            <Select
+                              value={selectedFile || ""}
+                              onValueChange={setSelectedFile}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a file" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availableFiles.map((file) => (
+                                  <SelectItem key={file.id} value={file.id}>
+                                    {file.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+
+                            {selectedFile && (
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <div className="text-sm font-medium">
+                                    {getSelectedFileData()?.name}
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => handleRemoveFile(selectedFile)}
+                                  >
+                                    <XCircle className="h-4 w-4" />
+                                  </Button>
+                                </div>
+
+                                <div className="text-xs text-muted-foreground">
+                                  <div>Columns: {getSelectedFileData()?.columns.length}</div>
+                                  <div>Rows: {getSelectedFileData()?.data.length}</div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-center py-4">
+                            <Database className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                            <div className="text-sm font-medium mb-1">No files available</div>
+                            <div className="text-xs text-muted-foreground mb-3">
+                              Upload files for analysis
+                            </div>
+                            <TabsTrigger 
+                              value="upload" 
+                              className="text-xs"
+                              onClick={() => {
+                                document.querySelector('[data-value="upload"]')?.click();
+                              }}
+                            >
+                              <Upload className="h-3.5 w-3.5 mr-1" />
+                              Upload Files
+                            </TabsTrigger>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="upload" className="h-full mt-0">
+                <div className="container mx-auto p-4 h-full flex flex-col">
+                  <Card className="flex-1 flex flex-col">
+                    <CardHeader>
+                      <CardTitle>Upload Files for Analysis</CardTitle>
+                      <CardDescription>
+                        Upload CSV, TXT, or ZIP files to analyze with AI
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex-1 flex items-center justify-center">
+                      <AIFileUploader onFilesProcessed={handleFilesProcessed} />
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="settings" className="h-full mt-0">
+                <div className="container mx-auto p-4 h-full">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>AI Model Settings</CardTitle>
+                      <CardDescription>
+                        Configure API keys for different AI models
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="openai-key">OpenAI API Key</Label>
+                        <Input
+                          id="openai-key"
+                          type="password"
+                          placeholder="sk-..."
+                          value={openAIKey}
+                          onChange={(e) => setOpenAIKey(e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Required for GPT-4o models
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="perplexity-key">Perplexity API Key</Label>
+                        <Input
+                          id="perplexity-key"
+                          type="password"
+                          placeholder="pplx-..."
+                          value={perplexityKey}
+                          onChange={(e) => setPerplexityKey(e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Required for Llama 3.1 Sonar models
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="mistral-key">Mistral API Key</Label>
+                        <Input
+                          id="mistral-key"
+                          type="password"
+                          placeholder="..."
+                          value={mistralKey}
+                          onChange={(e) => setMistralKey(e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Required for Mistral models
+                        </p>
+                      </div>
+
+                      <div className="border rounded-lg p-4 bg-card">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Sparkles className="h-4 w-4 text-primary" />
+                          <h3 className="font-medium">Local Model</h3>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          The local model runs directly in your browser and doesn't require any API key. It has basic data analysis capabilities but is limited compared to cloud models.
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+            </div>
+          </div>
+        </Tabs>
+      </div>
+    </div>
+  );
+};
+
+export default AIInteraction;
