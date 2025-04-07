@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -224,10 +225,13 @@ const AIInteraction: React.FC = () => {
     toast.success("File removed from AI analysis");
   };
 
-  const getModelInfo = (modelId: string) => {
+  const getModelInfo = (modelId: string): AIModel => {
     return models.find(model => model.id === modelId) || {
+      id: "unknown",
       name: "Unknown Model",
       provider: "Unknown",
+      description: "Unknown model",
+      requiresKey: false,
       avatar: "❓"
     };
   };
@@ -292,6 +296,7 @@ const AIInteraction: React.FC = () => {
     }
   };
 
+  // Enhanced local AI data processing with improved unique value identification
   const processLocalAI = async (prompt: string, fileData: FileData | null): Promise<string> => {
     await new Promise(resolve => setTimeout(resolve, 600));
     
@@ -300,6 +305,63 @@ const AIInteraction: React.FC = () => {
     }
 
     const promptLower = prompt.toLowerCase();
+    
+    // NEW FEATURE: Handle explicit requests for unique values
+    if (promptLower.includes("unique") || promptLower.includes("distinct") || promptLower.includes("list values") || 
+        promptLower.includes("all values") || promptLower.includes("possible values")) {
+      
+      // Try to identify which column the user is asking about
+      let targetColumn = null;
+      for (const col of fileData.columns) {
+        if (promptLower.includes(col.toLowerCase())) {
+          targetColumn = col;
+          break;
+        }
+      }
+      
+      if (targetColumn) {
+        // Extract unique values from the column
+        const uniqueValues = Array.from(new Set(
+          fileData.data.map(row => row[targetColumn] || "(empty)")
+        )).sort();
+        
+        let response = `# Unique Values in "${targetColumn}" Column\n\n`;
+        response += `I found ${uniqueValues.length} unique values in column "${targetColumn}" from dataset "${fileData.name}":\n\n`;
+        
+        if (uniqueValues.length <= 50) {
+          // Show all values if there are 50 or fewer
+          response += uniqueValues.map(val => `- "${val}"`).join('\n');
+        } else {
+          // Show the first 30 values and a count if there are many
+          response += uniqueValues.slice(0, 30).map(val => `- "${val}"`).join('\n');
+          response += `\n\n...and ${uniqueValues.length - 30} more unique values. `;
+          response += `The dataset has ${fileData.data.length} total rows.`;
+        }
+        
+        // Add value counts for the most frequent values
+        const valueCounts: {[key: string]: number} = {};
+        fileData.data.forEach(row => {
+          const val = row[targetColumn] || "(empty)";
+          valueCounts[val] = (valueCounts[val] || 0) + 1;
+        });
+        
+        const topValues = Object.entries(valueCounts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 10);
+        
+        if (topValues.length > 0) {
+          response += "\n\n## Most Frequent Values\n\n";
+          response += topValues.map(([val, count]) => 
+            `- "${val}": ${count} occurrences (${((count/fileData.data.length)*100).toFixed(1)}% of data)`)
+            .join('\n');
+        }
+        
+        return response;
+      } else {
+        // No specific column mentioned
+        return `Please specify which column you want to see unique values for. Available columns are: ${fileData.columns.join(", ")}`;
+      }
+    }
     
     if (promptLower.includes("statistics") || promptLower.includes("stats") || promptLower.includes("summary") || 
         promptLower.includes("describe") || promptLower.includes("overview")) {
@@ -364,6 +426,7 @@ const AIInteraction: React.FC = () => {
           }
         }
       } catch (e) {
+        // Skip if error
       }
       
       return `# Data Summary for "${fileData.name}"\n\n` +
@@ -639,7 +702,8 @@ const AIInteraction: React.FC = () => {
               denom2 += dev2 * dev2;
             }
             
-            const denomProduct = Math.sqrt(denom1) * Math.sqrt(denom2);
+            // Fixed type error by ensuring we have numbers before multiplication
+            const denomProduct = Math.sqrt(Number(denom1)) * Math.sqrt(Number(denom2));
             const correlation = denomProduct !== 0 ? numerator / denomProduct : 0;
             
             let relationshipStrength;
@@ -673,6 +737,7 @@ const AIInteraction: React.FC = () => {
           try {
             const contingencyTable: {[key: string]: {[key: string]: number}} = {};
             
+            // Count occurrences of each combination
             for (const row of fileData.data) {
               const val1 = String(row[col1] || "(empty)");
               const val2 = String(row[col2] || "(empty)");
@@ -747,6 +812,7 @@ const AIInteraction: React.FC = () => {
 2. Count or filter rows based on specific criteria
 3. Suggest appropriate charts for visualization
 4. Analyze relationships between columns
+5. Show unique values in a specific column
 
 Your file has ${fileData.data.length} rows and columns: ${fileData.columns.join(", ")}`;
   };
@@ -1074,7 +1140,10 @@ Let me know how I can help!`;
                               value="upload" 
                               className="text-xs"
                               onClick={() => {
-                                document.querySelector('[data-value="upload"]')?.click();
+                                const uploadTab = document.querySelector('[data-value="upload"]');
+                                if (uploadTab) {
+                                  (uploadTab as HTMLElement).click();
+                                }
                               }}
                             >
                               <Upload className="h-3.5 w-3.5 mr-1" />
@@ -1162,7 +1231,7 @@ Let me know how I can help!`;
                           <h3 className="font-medium">Local Model</h3>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          The local model runs directly in your browser and doesn't require any API key. It has basic data analysis capabilities but is limited compared to cloud models.
+                          The local model runs directly in your browser and doesn't require any API key. It has basic data analysis capabilities and now provides enhanced functionality for column value analysis.
                         </p>
                       </div>
                     </CardContent>
