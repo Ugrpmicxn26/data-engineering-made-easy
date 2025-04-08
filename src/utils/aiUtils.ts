@@ -1,3 +1,4 @@
+
 import { FileData } from "@/utils/fileUtils";
 
 export interface AIModel {
@@ -552,7 +553,7 @@ export const processLocalAI = async (prompt: string, fileData: FileData | null):
           
           // Create table header with proper number conversion for string lengths
           response += `| ${col1} \\ ${col2} | ${top5Val2.join(' | ')} |\n`;
-          response += `| ${'---'.repeat(Math.max(1, Math.ceil(Number(col1.length) / 3)))} | ${top5Val2.map(val2 => '---'.repeat(Math.max(1, Math.ceil(Number(String(val2).length) / 3)))).join(' | ')} |\n`;
+          response += `| ${'-'.repeat(Math.max(3, Number(col1.length)))} | ${top5Val2.map(val2 => '-'.repeat(Math.max(3, Number(String(val2).length)))).join(' | ')} |\n`;
           
           // Create table rows
           for (const val1 of val1Categories) {
@@ -644,7 +645,7 @@ export function generateContingencyTable(data: any[], col1: string, col2: string
     
     // Create table header with proper number conversion for string lengths
     response += `| ${col1} \\ ${col2} | ${top5Val2.join(' | ')} |\n`;
-    response += `| ${'---'.repeat(Math.max(1, Math.ceil(Number(col1.length) / 3)))} | ${top5Val2.map(val2 => '---'.repeat(Math.max(1, Math.ceil(Number(String(val2).length) / 3)))).join(' | ')} |\n`;
+    response += `| ${'-'.repeat(Math.max(3, Number(col1.length)))} | ${top5Val2.map(val2 => '-'.repeat(Math.max(3, Number(String(val2).length)))).join(' | ')} |\n`;
     
     // Create table rows
     for (const val1 of val1Categories) {
@@ -658,3 +659,4 @@ export function generateContingencyTable(data: any[], col1: string, col2: string
     return `Error generating contingency table: ${error instanceof Error ? error.message : "Unknown error"}`;
   }
 }
+

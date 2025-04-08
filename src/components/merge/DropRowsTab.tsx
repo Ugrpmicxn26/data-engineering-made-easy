@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from "react";
 import { RowsIcon, ListFilter, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,10 +26,13 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
   const [searchValue, setSearchValue] = useState("");
   const [keepSelected, setKeepSelected] = useState(false);
   
-  const fileOptions = selectedFiles.map(file => ({
-    value: file.id,
-    label: file.name
-  }));
+  const fileOptions = useMemo(() => 
+    selectedFiles.map(file => ({
+      value: file.id,
+      label: file.name
+    })), 
+    [selectedFiles]
+  );
 
   const columnOptions = useMemo(() => {
     if (!state.dropRowsFile) return [];
@@ -44,7 +48,9 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
 
   useEffect(() => {
     if (state.dropRowsFile && state.dropRowsColumn) {
-      const fileData = files.find(file => file.id === state.dropRowsFile)?.data;
+      const selectedFile = files.find(file => file.id === state.dropRowsFile);
+      const fileData = selectedFile?.data;
+      
       if (fileData) {
         const values = fileData
           .map(row => String(row[state.dropRowsColumn!] || "").trim())
@@ -53,6 +59,8 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
         const unique = [...new Set(values)].sort();
         setUniqueValues(unique);
         setSelectedValues([]);
+      } else {
+        setUniqueValues([]);
       }
     } else {
       setUniqueValues([]);
@@ -136,6 +144,14 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
     }
   };
 
+  const handleFileChange = (fileId: string) => {
+    setState({
+      dropRowsFile: fileId,
+      dropRowsColumn: null,
+      dropRowsValues: ""
+    });
+  };
+
   return (
     <div className="space-y-4">
       <ConfigHeader 
@@ -148,13 +164,7 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
           <label className="text-sm font-medium">Select File</label>
           <SelectWithSearch
             value={state.dropRowsFile || ""}
-            onValueChange={(value) => {
-              setState({
-                dropRowsFile: value,
-                dropRowsColumn: null,
-                dropRowsValues: ""
-              });
-            }}
+            onValueChange={handleFileChange}
             options={fileOptions}
             placeholder="Choose a file"
             className="w-full"

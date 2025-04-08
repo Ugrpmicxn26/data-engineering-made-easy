@@ -37,7 +37,11 @@ export function SelectWithSearch({
 }: SelectWithSearchProps) {
   const [open, setOpen] = React.useState(false);
   
-  const selectedOption = options.find(option => option.value === value);
+  // Ensure we're safely finding the selected option
+  const selectedOption = React.useMemo(() => 
+    options.find(option => option.value === value), 
+    [options, value]
+  );
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

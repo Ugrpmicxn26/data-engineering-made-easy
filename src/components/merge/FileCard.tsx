@@ -28,18 +28,21 @@ const FileCard: React.FC<FileCardProps> = ({
   onToggleColumn,
 }) => {
   // Convert columns to options format for SelectWithSearch
-  const columnOptions = file.columns.map(column => ({
+  const columnOptions = React.useMemo(() => file.columns.map(column => ({
     value: column,
     label: column
-  }));
+  })), [file.columns]);
 
   // State for column search
   const [columnSearchTerm, setColumnSearchTerm] = React.useState("");
   
   // Filter columns based on search term
-  const filteredColumns = columnSearchTerm 
-    ? file.columns.filter(col => col.toLowerCase().includes(columnSearchTerm.toLowerCase()))
-    : file.columns;
+  const filteredColumns = React.useMemo(() => 
+    columnSearchTerm 
+      ? file.columns.filter(col => col.toLowerCase().includes(columnSearchTerm.toLowerCase()))
+      : file.columns,
+    [file.columns, columnSearchTerm]
+  );
 
   return (
     <div className="p-4 bg-card rounded-lg border">
