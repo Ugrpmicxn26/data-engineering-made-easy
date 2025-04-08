@@ -26,7 +26,7 @@ export const ensureArray = <T>(value: any): T[] => {
   if (Array.isArray(value)) return value;
   
   // Check if value is an iterable object and not a string
-  if (typeof value === 'object' && value !== null && typeof value[Symbol.iterator] === 'function' && typeof value !== 'string') {
+  if (typeof value === 'object' && value !== null && Symbol.iterator in Object(value) && typeof value !== 'string') {
     try {
       return Array.from(value as Iterable<T>);
     } catch (error) {

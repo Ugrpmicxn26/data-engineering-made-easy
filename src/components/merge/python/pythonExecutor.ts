@@ -1,5 +1,7 @@
+
 import { ParseOptions, FileData } from "@/utils/fileUtils";
 import { numToString, stringToNum } from "@/utils/typeFixes";
+import { ensureNumber } from "@/utils/type-correction";
 
 export interface PythonExecutionResult {
   outputText: string;
@@ -20,7 +22,7 @@ export function executePythonCode(
   parseOptions: ParseOptions
 ): PythonExecutionResult {
   let outputText = "";
-  let resultData = [...file.data];
+  let resultData = [...(file.data || [])];
   let error = null;
 
   try {
@@ -36,13 +38,17 @@ export function executePythonCode(
     }
     
     if (pythonCode.includes("df.columns")) {
-      const columns = Object.keys(resultData[0] || {});
+      const columns = resultData.length > 0 && resultData[0] 
+        ? Object.keys(resultData[0]) 
+        : [];
       outputText += "# DataFrame.columns\n";
       outputText += "Columns: " + JSON.stringify(columns) + "\n\n";
     }
     
     if (pythonCode.includes("df.info()")) {
-      const columns = Object.keys(resultData[0] || {});
+      const columns = resultData.length > 0 && resultData[0] 
+        ? Object.keys(resultData[0]) 
+        : [];
       outputText += "# DataFrame.info()\n";
       outputText += `<class 'pandas.core.frame.DataFrame'>\n`;
       outputText += `RangeIndex: ${resultData.length} entries, 0 to ${resultData.length - 1}\n`;
@@ -54,20 +60,22 @@ export function executePythonCode(
     }
     
     if (pythonCode.includes("df.describe()")) {
-      const columns = Object.keys(resultData[0] || {});
+      const columns = resultData.length > 0 && resultData[0] 
+        ? Object.keys(resultData[0]) 
+        : [];
       outputText += "# DataFrame.describe()\n";
       
       const numericColumns = columns.filter(col => {
-        return resultData.some(row => !isNaN(Number(row[col])));
+        return resultData.some(row => row && !isNaN(ensureNumber(row[col])));
       });
       
       if (numericColumns.length > 0) {
         const stats: Record<string, Record<string, string>> = {};
         numericColumns.forEach(col => {
           const values = resultData
-            .map(row => row[col])
-            .filter(val => !isNaN(Number(val)))
-            .map(Number);
+            .filter(row => row && row[col] !== undefined && row[col] !== null)
+            .map(row => ensureNumber(row[col]))
+            .filter(val => !isNaN(val));
           
           if (values.length > 0) {
             const sum = values.reduce((a, b) => a + b, 0);
@@ -89,10 +97,10 @@ export function executePythonCode(
             stats['std'][col] = calculateStdDev(values).toFixed(6);
             stats['min'][col] = Math.min(...values).toFixed(6);
             const percentile25 = sortedValues[Math.floor(sortedValues.length * 0.25)].toFixed(6);
-            stats['25%'][col] = numToString(stringToNum(percentile25));
+            stats['25%'][col] = percentile25;
             stats['50%'][col] = median.toFixed(6);
             const percentile75 = sortedValues[Math.floor(sortedValues.length * 0.75)].toFixed(6);
-            stats['75%'][col] = numToString(stringToNum(percentile75));
+            stats['75%'][col] = percentile75;
             stats['max'][col] = Math.max(...values).toFixed(6);
           }
         });
@@ -115,7 +123,7 @@ export function executePythonCode(
     processDataTransformations(pythonCode, resultData, outputText);
     
     outputText += "# Final DataFrame Result:\n";
-    outputText += `# [${resultData.length} rows × ${Object.keys(resultData[0] || {}).length} columns]\n`;
+    outputText += `# [${resultData.length} rows × ${resultData.length > 0 && resultData[0] ? Object.keys(resultData[0]).length : 0} columns]\n`;
     
     return { outputText, resultData, error };
   } catch (err) {

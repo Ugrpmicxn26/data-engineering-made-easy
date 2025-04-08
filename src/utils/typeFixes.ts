@@ -14,5 +14,6 @@ export const numToString = (value: number): string => {
  * @returns The number representation of the string
  */
 export const stringToNum = (value: string): number => {
-  return Number(value);
+  const num = parseFloat(value);
+  return isNaN(num) ? 0 : num;
 };
