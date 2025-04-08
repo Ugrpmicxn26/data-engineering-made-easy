@@ -12,7 +12,7 @@ import { FileData } from "@/utils/fileUtils";
 import DataTable from "./DataTable";
 import { X } from "lucide-react";
 import { ensureArray } from "@/utils/type-correction";
-import { superSafeToArray, isSafelyIterable, makeSafelyIterable } from "@/utils/iterableUtils";
+import { superSafeToArray, isSafelyIterable } from "@/utils/iterableUtils";
 
 interface FilePreviewModalProps {
   file: FileData | null;
@@ -29,6 +29,11 @@ const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ file, isOpen, onClo
     if (!file || !file.data) {
       console.warn("FilePreviewModal: Missing file data");
       return [];
+    }
+    
+    // Additional protection - if data is a primitive string, wrap it
+    if (typeof file.data === 'string') {
+      return [{ value: file.data }];
     }
     
     // Check if data is iterable first

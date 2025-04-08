@@ -23,6 +23,11 @@ const PythonDataPreview: React.FC<PythonDataPreviewProps> = ({ outputData }) => 
       return [];
     }
     
+    // Additional protection - if outputData is a primitive string, wrap it
+    if (typeof outputData === 'string') {
+      return [{ value: outputData }];
+    }
+    
     // Try with superSafeToArray for maximum safety
     try {
       const result = superSafeToArray(outputData);

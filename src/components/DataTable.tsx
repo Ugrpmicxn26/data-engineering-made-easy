@@ -21,6 +21,7 @@ import { ChevronLeft, ChevronRight, Download, Search, Info } from "lucide-react"
 import { downloadCSV, detectColumnTypes, ColumnInfo } from "@/utils/fileUtils";
 import TableControls, { RowFilter, PivotConfig } from "./TableControls";
 import { ensureArray } from "@/utils/type-correction";
+import { superSafeToArray, isSafelyIterable } from "@/utils/iterableUtils";
 
 interface DataTableProps {
   data: any[];
@@ -35,8 +36,36 @@ const DataTable: React.FC<DataTableProps> = ({
   maxHeight = "500px",
   onDataUpdate
 }) => {
-  // Ensure data is safe
-  const safeData = ensureArray(data);
+  // Multiple safeguards to ensure we always have a valid array
+  const safeData = useMemo(() => {
+    // Handle null/undefined case first
+    if (data === null || data === undefined) {
+      return [];
+    }
+    
+    // Check if data is iterable
+    if (!isSafelyIterable(data)) {
+      return [];
+    }
+    
+    // Try with superSafeToArray for maximum safety
+    try {
+      const result = superSafeToArray(data);
+      
+      // If that fails, try with ensureArray as backup
+      if (!result || result.length === 0) {
+        try {
+          return ensureArray(data || []);
+        } catch (e) {
+          return [];
+        }
+      }
+      
+      return result;
+    } catch (e) {
+      return [];
+    }
+  }, [data]);
   
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
@@ -60,6 +89,12 @@ const DataTable: React.FC<DataTableProps> = ({
       
       const detectedColumnInfo = detectColumnTypes(safeData);
       setColumnInfo(detectedColumnInfo);
+    } else {
+      // Handle empty data or data without proper structure
+      setDisplayColumns([]);
+      setActiveColumns([]);
+      setDisplayData([]);
+      setColumnInfo({});
     }
   }, [safeData]);
 

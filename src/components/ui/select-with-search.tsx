@@ -53,6 +53,11 @@ export function SelectWithSearch({
       return [];
     }
     
+    // Protection for primitive string
+    if (typeof options === 'string') {
+      return [];
+    }
+    
     // Use multiple methods to ensure valid options
     try {
       // First try with superSafeToArray
