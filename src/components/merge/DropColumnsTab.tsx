@@ -2,6 +2,7 @@
 import React from "react";
 import { Trash2, ColumnsIcon, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import ConfigHeader from "./ConfigHeader";
 import { ActionTabProps, DropColumnsTabState } from "./types";
@@ -9,9 +10,6 @@ import { excludeColumns, generateCSV } from "@/utils/fileUtils";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { SelectWithSearch } from "@/components/ui/select-with-search";
-import { ensureArray } from "@/utils/type-correction";
-import type { FileData } from "@/utils/fileUtils";
 
 const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing, onComplete }) => {
   const [state, setState] = React.useState<DropColumnsTabState>({
@@ -19,10 +17,6 @@ const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
     columnsToExclude: [],
     mode: "drop"
   });
-
-  // Ensure safe access to arrays with proper typing
-  const safeFiles = ensureArray<FileData>(files || []);
-  const safeSelectedFiles = ensureArray<FileData>(selectedFiles || []);
 
   const handleToggleExcludeColumn = (column: string) => {
     setState(prev => ({
@@ -40,13 +34,13 @@ const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
     }
 
     try {
-      const fileToModify = safeFiles.find(file => file && file.id === state.dropColumnsFile);
-      if (!fileToModify || !Array.isArray(fileToModify.data)) {
+      const fileToModify = files.find(file => file.id === state.dropColumnsFile);
+      if (!fileToModify || !fileToModify.data) {
         toast.error("File data not found");
         return;
       }
 
-      const allColumns = ensureArray<string>(fileToModify.columns || []);
+      const allColumns = fileToModify.columns;
       
       let columnsToExclude: string[];
       
@@ -56,7 +50,7 @@ const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
         columnsToExclude = allColumns.filter(col => !state.columnsToExclude.includes(col));
       }
 
-      const modifiedData = fileToModify.data.filter(row => row !== null).map(row => {
+      const modifiedData = fileToModify.data.map(row => {
         const newRow = { ...row };
         columnsToExclude.forEach(column => {
           delete newRow[column];
@@ -69,8 +63,8 @@ const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
       const newContent = generateCSV(modifiedData);
       const newSize = new Blob([newContent]).size;
 
-      const updatedFiles = [...safeFiles];
-      const fileIndex = updatedFiles.findIndex(f => f && f.id === state.dropColumnsFile);
+      const updatedFiles = [...files];
+      const fileIndex = updatedFiles.findIndex(f => f.id === state.dropColumnsFile);
       
       if (fileIndex !== -1) {
         updatedFiles[fileIndex] = {
@@ -101,21 +95,11 @@ const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
 
   const selectedCount = state.columnsToExclude.length;
   
-  const selectedFile = safeSelectedFiles.find(f => f && f.id === state.dropColumnsFile);
-  const safeSelectedFileColumns = ensureArray<string>(selectedFile?.columns || []);
-  const totalColumns = safeSelectedFileColumns.length || 0;
+  const totalColumns = selectedFiles.find(f => f.id === state.dropColumnsFile)?.columns.length || 0;
   
   const remainingCount = state.mode === "drop" 
     ? totalColumns - selectedCount 
     : selectedCount;
-
-  // Create file options safely
-  const fileOptions = safeSelectedFiles
-    .filter(file => file && typeof file === 'object')
-    .map(file => ({
-      value: file.id,
-      label: file.name
-    }));
 
   return (
     <div className="space-y-4">
@@ -127,7 +111,7 @@ const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
       <div className="p-4 bg-card rounded-lg border">
         <div className="mb-4">
           <label className="text-sm font-medium">Select File</label>
-          <SelectWithSearch
+          <Select
             value={state.dropColumnsFile || ""}
             onValueChange={(value) => {
               setState({
@@ -136,14 +120,21 @@ const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
                 columnsToExclude: []
               });
             }}
-            options={fileOptions}
-            placeholder="Choose a file"
-            className="w-full"
-            triggerClassName="mt-1"
-          />
+          >
+            <SelectTrigger className="w-full mt-1">
+              <SelectValue placeholder="Choose a file" />
+            </SelectTrigger>
+            <SelectContent>
+              {selectedFiles.map(file => (
+                <SelectItem key={file.id} value={file.id}>
+                  {file.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         
-        {state.dropColumnsFile && selectedFile && (
+        {state.dropColumnsFile && (
           <>
             <div className="mt-6 mb-4">
               <Tabs 
@@ -180,30 +171,33 @@ const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
               </h4>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-2 max-h-60 overflow-y-auto border rounded-md p-2">
-                {selectedFile && Array.isArray(selectedFile.columns) && selectedFile.columns.map(column => (
-                  <div key={column} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`column-${state.dropColumnsFile}-${column}`}
-                      checked={state.columnsToExclude.includes(column)}
-                      onCheckedChange={() => handleToggleExcludeColumn(column)}
-                    />
-                    <label
-                      htmlFor={`column-${state.dropColumnsFile}-${column}`}
-                      className="text-sm truncate cursor-pointer"
-                    >
-                      {column}
-                    </label>
-                  </div>
-                ))}
+                {selectedFiles
+                  .find(f => f.id === state.dropColumnsFile)
+                  ?.columns.map(column => (
+                    <div key={column} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`column-${state.dropColumnsFile}-${column}`}
+                        checked={state.columnsToExclude.includes(column)}
+                        onCheckedChange={() => handleToggleExcludeColumn(column)}
+                      />
+                      <label
+                        htmlFor={`column-${state.dropColumnsFile}-${column}`}
+                        className="text-sm truncate cursor-pointer"
+                      >
+                        {column}
+                      </label>
+                    </div>
+                  ))}
               </div>
               
               <div className="mt-3 text-xs text-right">
                 <button 
                   onClick={() => {
-                    if (selectedFile && Array.isArray(selectedFile.columns)) {
+                    const file = selectedFiles.find(f => f.id === state.dropColumnsFile);
+                    if (file) {
                       setState(prev => ({
                         ...prev,
-                        columnsToExclude: [...(selectedFile.columns || [])]
+                        columnsToExclude: [...file.columns]
                       }));
                     }
                   }}

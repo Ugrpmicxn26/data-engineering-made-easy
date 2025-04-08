@@ -1,12 +1,13 @@
+
 import React from "react";
 import { Tag, CheckCircle, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import ConfigHeader from "./ConfigHeader";
 import { ActionTabProps, RenameColumnsTabState } from "./types";
 import { renameColumns } from "@/utils/fileUtils";
 import { toast } from "sonner";
-import { SelectWithSearch } from "@/components/ui/select-with-search";
 
 const RenameColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing, onComplete }) => {
   const [state, setState] = React.useState<RenameColumnsTabState>({
@@ -74,12 +75,6 @@ const RenameColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isPr
     }
   };
 
-  // Convert files to options format for SelectWithSearch
-  const fileOptions = selectedFiles.map(file => ({
-    value: file.id,
-    label: file.name
-  }));
-
   return (
     <div className="space-y-4">
       <ConfigHeader 
@@ -90,7 +85,7 @@ const RenameColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isPr
       <div className="p-4 bg-card rounded-lg border">
         <div className="mb-4">
           <label className="text-sm font-medium">Select File</label>
-          <SelectWithSearch
+          <Select
             value={state.renameColumnsFile || ""}
             onValueChange={(value) => {
               setState({
@@ -98,11 +93,18 @@ const RenameColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isPr
                 columnRenames: {}
               });
             }}
-            options={fileOptions}
-            placeholder="Choose a file"
-            className="w-full"
-            triggerClassName="mt-1"
-          />
+          >
+            <SelectTrigger className="w-full mt-1">
+              <SelectValue placeholder="Choose a file" />
+            </SelectTrigger>
+            <SelectContent>
+              {selectedFiles.map(file => (
+                <SelectItem key={file.id} value={file.id}>
+                  {file.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         
         {state.renameColumnsFile && (

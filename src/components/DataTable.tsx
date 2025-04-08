@@ -20,8 +20,6 @@ import {
 import { ChevronLeft, ChevronRight, Download, Search, Info } from "lucide-react";
 import { downloadCSV, detectColumnTypes, ColumnInfo } from "@/utils/fileUtils";
 import TableControls, { RowFilter, PivotConfig } from "./TableControls";
-import { ensureArray } from "@/utils/type-correction";
-import { superSafeToArray, isSafelyIterable } from "@/utils/iterableUtils";
 
 interface DataTableProps {
   data: any[];
@@ -36,37 +34,6 @@ const DataTable: React.FC<DataTableProps> = ({
   maxHeight = "500px",
   onDataUpdate
 }) => {
-  // Multiple safeguards to ensure we always have a valid array
-  const safeData = useMemo(() => {
-    // Handle null/undefined case first
-    if (data === null || data === undefined) {
-      return [];
-    }
-    
-    // Check if data is iterable
-    if (!isSafelyIterable(data)) {
-      return [];
-    }
-    
-    // Try with superSafeToArray for maximum safety
-    try {
-      const result = superSafeToArray(data);
-      
-      // If that fails, try with ensureArray as backup
-      if (!result || result.length === 0) {
-        try {
-          return ensureArray(data || []);
-        } catch (e) {
-          return [];
-        }
-      }
-      
-      return result;
-    } catch (e) {
-      return [];
-    }
-  }, [data]);
-  
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [displayData, setDisplayData] = useState<any[]>([]);
@@ -74,29 +41,23 @@ const DataTable: React.FC<DataTableProps> = ({
   const [activeColumns, setActiveColumns] = useState<string[]>([]);
   const [activeFilters, setActiveFilters] = useState<RowFilter[]>([]);
   const [activePivot, setActivePivot] = useState<PivotConfig | null>(null);
-  const [originalData] = useState<any[]>(safeData);
+  const [originalData] = useState<any[]>(data);
   const [columnInfo, setColumnInfo] = useState<Record<string, ColumnInfo>>({});
   const [showDataTypes, setShowDataTypes] = useState(false);
 
   const rowsPerPage = 10;
 
   useEffect(() => {
-    if (safeData && safeData.length > 0 && typeof safeData[0] === 'object' && safeData[0] !== null) {
-      const initialColumns = Object.keys(safeData[0]);
+    if (data && data.length > 0) {
+      const initialColumns = Object.keys(data[0]);
       setDisplayColumns(initialColumns);
       setActiveColumns(initialColumns);
-      setDisplayData(safeData);
+      setDisplayData(data);
       
-      const detectedColumnInfo = detectColumnTypes(safeData);
+      const detectedColumnInfo = detectColumnTypes(data);
       setColumnInfo(detectedColumnInfo);
-    } else {
-      // Handle empty data or data without proper structure
-      setDisplayColumns([]);
-      setActiveColumns([]);
-      setDisplayData([]);
-      setColumnInfo({});
     }
-  }, [safeData]);
+  }, [data]);
 
   useEffect(() => {
     if (!originalData || originalData.length === 0) return;
@@ -105,9 +66,7 @@ const DataTable: React.FC<DataTableProps> = ({
 
     if (activeFilters.length > 0) {
       processedData = processedData.filter(row => {
-        if (!row) return false;
         return activeFilters.every(filter => {
-          if (!filter || !filter.column || !filter.value) return true;
           const columnValue = row[filter.column]?.toString().toLowerCase() || '';
           const filterValue = filter.value.toLowerCase();
           const matches = columnValue.includes(filterValue);
@@ -122,52 +81,46 @@ const DataTable: React.FC<DataTableProps> = ({
     
     if (activePivot && activePivot.pivotColumn && activePivot.valueColumn) {
       const pivotValues = [...new Set(
-        originalData
-          .filter(item => item)
-          .map(item => item[activePivot.pivotColumn])
+        originalData.map(item => item[activePivot.pivotColumn])
       )].filter(Boolean);
       
-      if (originalData.length > 0 && originalData[0]) {
-        const remainingColumns = Object.keys(originalData[0])
-          .filter(col => col !== activePivot.pivotColumn && col !== activePivot.valueColumn);
+      const remainingColumns = Object.keys(originalData[0])
+        .filter(col => col !== activePivot.pivotColumn && col !== activePivot.valueColumn);
+      
+      const groupedData: Record<string, any> = {};
+      
+      originalData.forEach(row => {
+        const groupKey = remainingColumns.map(col => `${col}:${row[col]}`).join('|');
         
-        const groupedData: Record<string, any> = {};
-        
-        originalData.forEach(row => {
-          if (!row) return;
+        if (!groupedData[groupKey]) {
+          const groupRow: Record<string, any> = {};
+          remainingColumns.forEach(col => {
+            groupRow[col] = row[col];
+          });
           
-          const groupKey = remainingColumns.map(col => `${col}:${row[col]}`).join('|');
+          pivotValues.forEach(pivotVal => {
+            groupRow[`${activePivot.pivotColumn}_${pivotVal}`] = null;
+          });
           
-          if (!groupedData[groupKey]) {
-            const groupRow: Record<string, any> = {};
-            remainingColumns.forEach(col => {
-              groupRow[col] = row[col];
-            });
-            
-            pivotValues.forEach(pivotVal => {
-              groupRow[`${activePivot.pivotColumn}_${pivotVal}`] = null;
-            });
-            
-            groupedData[groupKey] = groupRow;
-          }
-          
-          const pivotVal = row[activePivot.pivotColumn];
-          if (pivotVal) {
-            groupedData[groupKey][`${activePivot.pivotColumn}_${pivotVal}`] = row[activePivot.valueColumn];
-          }
-        });
-        
-        processedData = Object.values(groupedData);
-        
-        const pivotColumns = pivotValues.map(val => `${activePivot.pivotColumn}_${val}`);
-        setDisplayColumns([...remainingColumns, ...pivotColumns]);
-        setActiveColumns([...remainingColumns, ...pivotColumns]);
-        
-        if (onDataUpdate) {
-          onDataUpdate(processedData);
+          groupedData[groupKey] = groupRow;
         }
+        
+        const pivotVal = row[activePivot.pivotColumn];
+        if (pivotVal) {
+          groupedData[groupKey][`${activePivot.pivotColumn}_${pivotVal}`] = row[activePivot.valueColumn];
+        }
+      });
+      
+      processedData = Object.values(groupedData);
+      
+      const pivotColumns = pivotValues.map(val => `${activePivot.pivotColumn}_${val}`);
+      setDisplayColumns([...remainingColumns, ...pivotColumns]);
+      setActiveColumns([...remainingColumns, ...pivotColumns]);
+      
+      if (onDataUpdate) {
+        onDataUpdate(processedData);
       }
-    } else if (originalData.length > 0 && originalData[0]) {
+    } else {
       setDisplayColumns(Object.keys(originalData[0]));
     }
 
@@ -176,18 +129,16 @@ const DataTable: React.FC<DataTableProps> = ({
   }, [originalData, activeFilters, activePivot, onDataUpdate]);
 
   const filteredData = useMemo(() => {
-    if (!displayData || displayData.length === 0) return [];
+    if (!displayData) return [];
     
-    return displayData.filter((row) => {
-      if (!row) return false;
-      return Object.keys(row).some(
+    return displayData.filter((row) =>
+      Object.keys(row).some(
         key => 
           activeColumns.includes(key) && 
-          row[key] !== null && 
-          row[key] !== undefined && 
+          row[key] && 
           row[key].toString().toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    });
+      )
+    );
   }, [displayData, searchTerm, activeColumns]);
 
   const totalPages = Math.ceil(filteredData.length / rowsPerPage);
@@ -202,7 +153,6 @@ const DataTable: React.FC<DataTableProps> = ({
 
   const handleDownload = () => {
     const dataToDownload = filteredData.map(row => {
-      if (!row) return {};
       const newRow: Record<string, any> = {};
       activeColumns.forEach(col => {
         newRow[col] = row[col];
@@ -241,7 +191,7 @@ const DataTable: React.FC<DataTableProps> = ({
     }
   };
 
-  if (!safeData || safeData.length === 0) {
+  if (!data || data.length === 0) {
     return (
       <div className="text-center p-8 bg-muted/30 rounded-lg">
         <p className="text-muted-foreground">No data to display</p>

@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect, useMemo } from "react";
 import { RowsIcon, ListFilter, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -12,9 +12,6 @@ import ConfigHeader from "./ConfigHeader";
 import { ActionTabProps, DropRowsTabState } from "./types";
 import { generateCSV } from "@/utils/fileUtils";
 import { toast } from "sonner";
-import { SelectWithSearch } from "@/components/ui/select-with-search";
-import { ensureArray } from "@/utils/type-correction";
-import type { FileData } from "@/utils/fileUtils";
 
 const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing, onComplete }) => {
   const [state, setState] = useState<DropRowsTabState>({
@@ -25,56 +22,36 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
   
   const [uniqueValues, setUniqueValues] = useState<string[]>([]);
   const [selectedValues, setSelectedValues] = useState<string[]>([]);
+  const [searchValue, setSearchValue] = useState("");
   const [keepSelected, setKeepSelected] = useState(false);
   
-  const safeFiles = ensureArray<FileData>(files || []);
-  const safeSelectedFiles = ensureArray<FileData>(selectedFiles || []);
-  
-  const fileOptions = useMemo(() => 
-    safeSelectedFiles
-      .filter(file => file && typeof file === 'object')
-      .map(file => ({
-        value: file.id,
-        label: file.name
-      })), 
-    [safeSelectedFiles]
-  );
-
-  const columnOptions = useMemo(() => {
-    if (!state.dropRowsFile) return [];
-    
-    const selectedFile = safeSelectedFiles.find(f => f && f.id === state.dropRowsFile);
-    if (!selectedFile) return [];
-    
-    const safeColumns = ensureArray<string>(selectedFile.columns || []);
-    return safeColumns.map(column => ({
-      value: String(column),
-      label: String(column)
-    }));
-  }, [state.dropRowsFile, safeSelectedFiles]);
-
+  // Get unique values when column is selected
   useEffect(() => {
     if (state.dropRowsFile && state.dropRowsColumn) {
-      const selectedFile = safeFiles.find(file => file && file.id === state.dropRowsFile);
-      const fileData = selectedFile?.data;
-      
-      if (fileData && Array.isArray(fileData)) {
+      const fileData = files.find(file => file.id === state.dropRowsFile)?.data;
+      if (fileData) {
         const values = fileData
-          .filter(row => row !== null && typeof row === 'object')
           .map(row => String(row[state.dropRowsColumn!] || "").trim())
           .filter(Boolean);
           
+        // Get unique values and sort them
         const unique = [...new Set(values)].sort();
         setUniqueValues(unique);
         setSelectedValues([]);
-      } else {
-        setUniqueValues([]);
       }
     } else {
       setUniqueValues([]);
       setSelectedValues([]);
     }
-  }, [state.dropRowsFile, state.dropRowsColumn, safeFiles]);
+  }, [state.dropRowsFile, state.dropRowsColumn, files]);
+  
+  // Filter values based on search term
+  const filteredValues = useMemo(() => {
+    if (!searchValue.trim()) return uniqueValues;
+    return uniqueValues.filter(value => 
+      value.toLowerCase().includes(searchValue.toLowerCase())
+    );
+  }, [uniqueValues, searchValue]);
   
   const handleToggleValue = (value: string) => {
     setSelectedValues(prev => 
@@ -84,12 +61,22 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
     );
   };
   
-  const selectAllValues = () => {
-    setSelectedValues(uniqueValues);
+  const selectAllFiltered = () => {
+    setSelectedValues(prev => {
+      const newSelection = [...prev];
+      filteredValues.forEach(value => {
+        if (!newSelection.includes(value)) {
+          newSelection.push(value);
+        }
+      });
+      return newSelection;
+    });
   };
   
-  const clearAllValues = () => {
-    setSelectedValues([]);
+  const clearAllFiltered = () => {
+    setSelectedValues(prev => 
+      prev.filter(value => !filteredValues.includes(value))
+    );
   };
 
   const handleFilterRows = () => {
@@ -99,25 +86,27 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
     }
 
     try {
-      const fileToModify = safeFiles.find(file => file && file.id === state.dropRowsFile);
-      if (!fileToModify || !Array.isArray(fileToModify.data)) {
+      const fileToModify = files.find(file => file.id === state.dropRowsFile);
+      if (!fileToModify || !fileToModify.data) {
         toast.error("File data not found");
         return;
       }
 
+      // Filter rows based on selected values
       const filteredData = fileToModify.data.filter(row => {
-        if (!row || typeof row !== 'object') return false;
         const columnValue = String(row[state.dropRowsColumn!] || "").trim();
         const valueIsSelected = selectedValues.includes(columnValue);
         
+        // Keep selected rows or filter them out based on toggle
         return keepSelected ? valueIsSelected : !valueIsSelected;
       });
       
+      // Generate new CSV content and calculate size
       const newContent = generateCSV(filteredData);
       const newSize = new Blob([newContent]).size;
 
-      const updatedFiles = [...safeFiles];
-      const fileIndex = updatedFiles.findIndex(f => f && f.id === state.dropRowsFile);
+      const updatedFiles = [...files];
+      const fileIndex = updatedFiles.findIndex(f => f.id === state.dropRowsFile);
       
       if (fileIndex !== -1) {
         updatedFiles[fileIndex] = {
@@ -136,14 +125,6 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
     }
   };
 
-  const handleFileChange = (fileId: string) => {
-    setState({
-      dropRowsFile: fileId,
-      dropRowsColumn: null,
-      dropRowsValues: ""
-    });
-  };
-
   return (
     <div className="space-y-4">
       <ConfigHeader 
@@ -154,28 +135,50 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
       <div className="p-4 bg-card rounded-lg border">
         <div className="mb-4">
           <label className="text-sm font-medium">Select File</label>
-          <SelectWithSearch
+          <Select
             value={state.dropRowsFile || ""}
-            onValueChange={handleFileChange}
-            options={fileOptions}
-            placeholder="Choose a file"
-            className="w-full"
-            triggerClassName="mt-1"
-          />
+            onValueChange={(value) => {
+              setState({
+                dropRowsFile: value,
+                dropRowsColumn: null,
+                dropRowsValues: ""
+              });
+            }}
+          >
+            <SelectTrigger className="w-full mt-1">
+              <SelectValue placeholder="Choose a file" />
+            </SelectTrigger>
+            <SelectContent>
+              {selectedFiles.map(file => (
+                <SelectItem key={file.id} value={file.id}>
+                  {file.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         
         {state.dropRowsFile && (
           <>
             <div className="mb-4">
               <label className="text-sm font-medium">Select Column to Filter On</label>
-              <SelectWithSearch
+              <Select
                 value={state.dropRowsColumn || ""}
                 onValueChange={(value) => setState(prev => ({ ...prev, dropRowsColumn: value }))}
-                options={columnOptions}
-                placeholder="Choose a column"
-                className="w-full"
-                triggerClassName="mt-1"
-              />
+              >
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder="Choose a column" />
+                </SelectTrigger>
+                <SelectContent>
+                  {selectedFiles
+                    .find(f => f.id === state.dropRowsFile)
+                    ?.columns.map(column => (
+                      <SelectItem key={column} value={column}>
+                        {column}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
             
             {state.dropRowsColumn && (
@@ -200,7 +203,7 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        onClick={selectAllValues}
+                        onClick={selectAllFiltered}
                         className="h-7 text-xs"
                       >
                         <Check className="h-3 w-3 mr-1" />
@@ -209,13 +212,23 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        onClick={clearAllValues}
+                        onClick={clearAllFiltered}
                         className="h-7 text-xs"
                       >
                         <X className="h-3 w-3 mr-1" />
                         Clear All
                       </Button>
                     </div>
+                  </div>
+                  
+                  <div className="relative mb-2">
+                    <Input
+                      placeholder="Search values..."
+                      value={searchValue}
+                      onChange={(e) => setSearchValue(e.target.value)}
+                      className="pl-8"
+                    />
+                    <ListFilter className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   </div>
                   
                   {selectedValues.length > 0 && (
@@ -242,9 +255,9 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
                   )}
                   
                   <ScrollArea className="h-[200px] border rounded-md p-2">
-                    {uniqueValues.length > 0 ? (
+                    {filteredValues.length > 0 ? (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {uniqueValues.map(value => (
+                        {filteredValues.map(value => (
                           <div key={value} className="flex items-center space-x-2">
                             <Checkbox
                               id={`value-${value}`}

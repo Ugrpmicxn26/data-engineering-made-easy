@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { FileData } from "@/utils/fileUtils";
 import { Database, XCircle } from "lucide-react";
 import AIFileUploader from "@/components/ai/AIFileUploader";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface UploadSectionProps {
   files: FileData[];
@@ -35,18 +34,13 @@ const UploadSection: React.FC<UploadSectionProps> = ({
         
         {files.length > 0 && (
           <Card>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle>Available Files</CardTitle>
-                <span className="text-sm text-muted-foreground">
-                  {files.length} file{files.length !== 1 ? 's' : ''}
-                </span>
-              </div>
+            <CardHeader>
+              <CardTitle>Available Files</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
                 {files.map(file => (
-                  <div key={file.id} className="flex items-center justify-between p-2 border rounded-md hover:bg-muted/30 transition-colors">
+                  <div key={file.id} className="flex items-center justify-between p-2 border rounded-md">
                     <div className="flex items-center gap-2">
                       <Database className="h-4 w-4 text-muted-foreground" />
                       <div>
@@ -54,47 +48,6 @@ const UploadSection: React.FC<UploadSectionProps> = ({
                         <p className="text-xs text-muted-foreground">
                           {file.data.length} rows, {file.columns.length} columns
                         </p>
-                        
-                        {/* Show a preview of column names */}
-                        <div className="flex flex-wrap gap-1 mt-1 max-w-[400px]">
-                          {file.columns.slice(0, 3).map(col => (
-                            <TooltipProvider key={col}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="inline-block px-1.5 py-0.5 bg-muted rounded text-xs">
-                                    {col}
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>{col}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          ))}
-                          {file.columns.length > 3 && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="inline-block px-1.5 py-0.5 bg-muted rounded text-xs">
-                                    +{file.columns.length - 3} more
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <div className="max-w-[300px]">
-                                    <p className="font-medium mb-1">All columns:</p>
-                                    <div className="flex flex-wrap gap-1">
-                                      {file.columns.map(col => (
-                                        <span key={col} className="inline-block px-1.5 py-0.5 bg-muted rounded text-xs">
-                                          {col}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  </div>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
-                        </div>
                       </div>
                     </div>
                     <Button variant="ghost" size="icon" onClick={() => onRemoveFile(file.id)}>

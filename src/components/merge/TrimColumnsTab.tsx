@@ -1,12 +1,13 @@
+
 import React from "react";
 import { Scissors, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import ConfigHeader from "./ConfigHeader";
 import { ActionTabProps, TrimColumnsTabState } from "./types";
 import { trimColumnValues } from "@/utils/fileUtils";
 import { toast } from "sonner";
-import { SelectWithSearch } from "@/components/ui/select-with-search";
 
 const TrimColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing, onComplete }) => {
   const [state, setState] = React.useState<TrimColumnsTabState>({
@@ -58,12 +59,6 @@ const TrimColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
     }
   };
 
-  // Convert files to options format for SelectWithSearch
-  const fileOptions = selectedFiles.map(file => ({
-    value: file.id,
-    label: file.name
-  }));
-
   return (
     <div className="space-y-4">
       <ConfigHeader 
@@ -74,7 +69,7 @@ const TrimColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
       <div className="p-4 bg-card rounded-lg border">
         <div className="mb-4">
           <label className="text-sm font-medium">Select File</label>
-          <SelectWithSearch
+          <Select
             value={state.trimColumnsFile || ""}
             onValueChange={(value) => {
               setState({
@@ -82,11 +77,18 @@ const TrimColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
                 columnsToTrim: []
               });
             }}
-            options={fileOptions}
-            placeholder="Choose a file"
-            className="w-full"
-            triggerClassName="mt-1"
-          />
+          >
+            <SelectTrigger className="w-full mt-1">
+              <SelectValue placeholder="Choose a file" />
+            </SelectTrigger>
+            <SelectContent>
+              {selectedFiles.map(file => (
+                <SelectItem key={file.id} value={file.id}>
+                  {file.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         
         {state.trimColumnsFile && (

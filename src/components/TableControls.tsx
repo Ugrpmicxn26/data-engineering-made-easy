@@ -31,7 +31,6 @@ import {
   Plus
 } from "lucide-react";
 import { ColumnInfo } from "@/utils/fileUtils";
-import { SelectWithSearch } from "@/components/ui/select-with-search";
 
 interface TableControlsProps {
   columns: string[];
@@ -62,6 +61,7 @@ const TableControls: React.FC<TableControlsProps> = ({
   const [rowFilters, setRowFilters] = useState<RowFilter[]>([]);
   const [pivotConfig, setPivotConfig] = useState<PivotConfig | null>(null);
   
+  // Column selection handler
   const handleColumnToggle = (column: string) => {
     const updatedColumns = selectedColumns.includes(column)
       ? selectedColumns.filter(col => col !== column)
@@ -71,6 +71,7 @@ const TableControls: React.FC<TableControlsProps> = ({
     onToggleColumns(updatedColumns);
   };
 
+  // Add new row filter
   const addRowFilter = () => {
     if (columns.length === 0) return;
     
@@ -83,6 +84,7 @@ const TableControls: React.FC<TableControlsProps> = ({
     setRowFilters([...rowFilters, newFilter]);
   };
 
+  // Update row filter
   const updateRowFilter = (index: number, field: keyof RowFilter, value: any) => {
     const updatedFilters = [...rowFilters];
     updatedFilters[index] = { ...updatedFilters[index], [field]: value };
@@ -90,12 +92,14 @@ const TableControls: React.FC<TableControlsProps> = ({
     onFilterRows(updatedFilters);
   };
 
+  // Remove row filter
   const removeRowFilter = (index: number) => {
     const updatedFilters = rowFilters.filter((_, i) => i !== index);
     setRowFilters(updatedFilters);
     onFilterRows(updatedFilters);
   };
 
+  // Handle pivot configuration
   const handlePivotChange = (field: keyof PivotConfig, value: string) => {
     if (!value) {
       setPivotConfig(null);
@@ -109,23 +113,21 @@ const TableControls: React.FC<TableControlsProps> = ({
     
     setPivotConfig(newConfig);
     
+    // Only apply pivot if both fields are set
     if (newConfig.pivotColumn && newConfig.valueColumn) {
       onPivot(newConfig);
     }
   };
 
+  // Reset pivot
   const resetPivot = () => {
     setPivotConfig(null);
     onPivot(null);
   };
 
-  const columnOptions = columns.map(column => ({
-    value: column,
-    label: column
-  }));
-
   return (
     <div className="flex flex-wrap gap-2 mb-4">
+      {/* Column Selection */}
       <Popover>
         <PopoverTrigger asChild>
           <Button variant="outline" size="sm" className="h-8 gap-1">
@@ -157,6 +159,7 @@ const TableControls: React.FC<TableControlsProps> = ({
         </PopoverContent>
       </Popover>
 
+      {/* Row Filtering */}
       <Popover>
         <PopoverTrigger asChild>
           <Button variant="outline" size="sm" className="h-8 gap-1">
@@ -205,12 +208,21 @@ const TableControls: React.FC<TableControlsProps> = ({
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <Label className="text-xs">Column</Label>
-                          <SelectWithSearch
+                          <Select
                             value={filter.column}
                             onValueChange={(value) => updateRowFilter(index, "column", value)}
-                            options={columnOptions}
-                            placeholder="Select column"
-                          />
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select column" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {columns.map((col) => (
+                                <SelectItem key={col} value={col}>
+                                  {col}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div>
                           <Label className="text-xs">Mode</Label>
@@ -257,6 +269,7 @@ const TableControls: React.FC<TableControlsProps> = ({
         </PopoverContent>
       </Popover>
 
+      {/* Pivot Controls */}
       <Popover>
         <PopoverTrigger asChild>
           <Button 
@@ -279,15 +292,22 @@ const TableControls: React.FC<TableControlsProps> = ({
           <div className="p-4 space-y-3">
             <div>
               <Label className="text-xs">Pivot Column (Categories)</Label>
-              <SelectWithSearch
+              <Select
                 value={pivotConfig?.pivotColumn || ""}
                 onValueChange={(value) => handlePivotChange("pivotColumn", value)}
-                options={[
-                  { value: "", label: "None" },
-                  ...columnOptions
-                ]}
-                placeholder="Select pivot column"
-              />
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select pivot column" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">None</SelectItem>
+                  {columns.map((col) => (
+                    <SelectItem key={col} value={col}>
+                      {col}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <p className="text-xs text-muted-foreground mt-1">
                 Values from this column will become new columns
               </p>
@@ -295,15 +315,22 @@ const TableControls: React.FC<TableControlsProps> = ({
             
             <div>
               <Label className="text-xs">Value Column</Label>
-              <SelectWithSearch
+              <Select
                 value={pivotConfig?.valueColumn || ""}
                 onValueChange={(value) => handlePivotChange("valueColumn", value)}
-                options={[
-                  { value: "", label: "None" },
-                  ...columnOptions
-                ]}
-                placeholder="Select value column"
-              />
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select value column" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">None</SelectItem>
+                  {columns.map((col) => (
+                    <SelectItem key={col} value={col}>
+                      {col}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <p className="text-xs text-muted-foreground mt-1">
                 Values from this column will populate the pivot table
               </p>
