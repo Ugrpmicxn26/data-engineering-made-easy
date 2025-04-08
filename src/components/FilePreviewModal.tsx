@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { FileData } from "@/utils/fileUtils";
 import DataTable from "./DataTable";
 import { X } from "lucide-react";
+import { ensureArray } from "@/utils/type-correction";
 
 interface FilePreviewModalProps {
   file: FileData | null;
@@ -20,6 +21,9 @@ interface FilePreviewModalProps {
 
 const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ file, isOpen, onClose }) => {
   if (!file) return null;
+
+  // Ensure file data is an array
+  const safeData = ensureArray(file.data || []);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -35,7 +39,7 @@ const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ file, isOpen, onClo
         
         <div className="flex-grow overflow-hidden">
           <DataTable 
-            data={file.data || []} 
+            data={safeData} 
             filename={file.name}
             maxHeight="60vh"
           />

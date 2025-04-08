@@ -9,10 +9,10 @@ interface PythonDataPreviewProps {
 
 const PythonDataPreview: React.FC<PythonDataPreviewProps> = ({ outputData }) => {
   // Multiple safeguards to ensure we always have a valid array
-  const safeOutputData = ensureArray(outputData);
+  const safeOutputData = ensureArray(outputData || []);
   
   // Get columns count safely
-  const columnsCount = safeOutputData.length > 0 && safeOutputData[0] !== null 
+  const columnsCount = safeOutputData.length > 0 && safeOutputData[0] !== null && typeof safeOutputData[0] === 'object'
     ? Object.keys(safeOutputData[0] || {}).length 
     : 0;
   

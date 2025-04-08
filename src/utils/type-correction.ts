@@ -24,13 +24,22 @@ export const ensureNumber = (value: any): number => {
 export const ensureArray = <T>(value: any): T[] => {
   if (value === null || value === undefined) return [];
   if (Array.isArray(value)) return value;
-  if (typeof value[Symbol.iterator] === 'function') {
+  
+  // Check if value is an iterable object and not a string
+  if (typeof value === 'object' && value !== null && typeof value[Symbol.iterator] === 'function' && typeof value !== 'string') {
     try {
-      return Array.from(value);
+      return Array.from(value as Iterable<T>);
     } catch (error) {
       console.error("Failed to convert iterable to array:", error);
       return [];
     }
   }
+  
+  // If it's a string and we're looking for a string array, wrap it
+  if (typeof value === 'string') {
+    return [value] as unknown as T[];
+  }
+  
+  // For other non-iterable values, return an empty array
   return [];
 };

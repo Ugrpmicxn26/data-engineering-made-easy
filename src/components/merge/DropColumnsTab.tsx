@@ -11,6 +11,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { SelectWithSearch } from "@/components/ui/select-with-search";
 import { ensureArray } from "@/utils/type-correction";
+import type { FileData } from "@/utils/fileUtils";
 
 const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing, onComplete }) => {
   const [state, setState] = React.useState<DropColumnsTabState>({
@@ -19,9 +20,9 @@ const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
     mode: "drop"
   });
 
-  // Ensure safe access to arrays
-  const safeFiles = ensureArray(files);
-  const safeSelectedFiles = ensureArray(selectedFiles);
+  // Ensure safe access to arrays with proper typing
+  const safeFiles = ensureArray<FileData>(files || []);
+  const safeSelectedFiles = ensureArray<FileData>(selectedFiles || []);
 
   const handleToggleExcludeColumn = (column: string) => {
     setState(prev => ({
@@ -45,7 +46,7 @@ const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
         return;
       }
 
-      const allColumns = ensureArray<string>(fileToModify.columns);
+      const allColumns = ensureArray<string>(fileToModify.columns || []);
       
       let columnsToExclude: string[];
       
@@ -101,7 +102,7 @@ const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
   const selectedCount = state.columnsToExclude.length;
   
   const selectedFile = safeSelectedFiles.find(f => f && f.id === state.dropColumnsFile);
-  const safeSelectedFileColumns = ensureArray(selectedFile?.columns);
+  const safeSelectedFileColumns = ensureArray<string>(selectedFile?.columns || []);
   const totalColumns = safeSelectedFileColumns.length || 0;
   
   const remainingCount = state.mode === "drop" 
@@ -202,7 +203,7 @@ const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
                     if (selectedFile && Array.isArray(selectedFile.columns)) {
                       setState(prev => ({
                         ...prev,
-                        columnsToExclude: [...selectedFile.columns]
+                        columnsToExclude: [...(selectedFile.columns || [])]
                       }));
                     }
                   }}

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from "react";
 import { RowsIcon, ListFilter, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import { generateCSV } from "@/utils/fileUtils";
 import { toast } from "sonner";
 import { SelectWithSearch } from "@/components/ui/select-with-search";
 import { ensureArray } from "@/utils/type-correction";
+import type { FileData } from "@/utils/fileUtils";
 
 const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing, onComplete }) => {
   const [state, setState] = useState<DropRowsTabState>({
@@ -26,8 +28,8 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
   const [searchValue, setSearchValue] = useState("");
   const [keepSelected, setKeepSelected] = useState(false);
   
-  const safeFiles = ensureArray(files);
-  const safeSelectedFiles = ensureArray(selectedFiles);
+  const safeFiles = ensureArray<FileData>(files || []);
+  const safeSelectedFiles = ensureArray<FileData>(selectedFiles || []);
   
   const fileOptions = useMemo(() => 
     safeSelectedFiles
@@ -45,7 +47,7 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
     const selectedFile = safeSelectedFiles.find(f => f && f.id === state.dropRowsFile);
     if (!selectedFile) return [];
     
-    const safeColumns = ensureArray<string>(selectedFile.columns);
+    const safeColumns = ensureArray<string>(selectedFile.columns || []);
     return safeColumns.map(column => ({
       value: String(column),
       label: String(column)

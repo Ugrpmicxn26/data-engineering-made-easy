@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -28,10 +29,10 @@ const FileCard: React.FC<FileCardProps> = ({
   onToggleColumn,
 }) => {
   // Ensure file and columns are valid with null/undefined checks
-  const safeFile = file || { columns: [], id: '', name: '', data: [] };
-  const safeColumns = ensureArray<string>(safeFile.columns);
-  const safeIncludeColumns = ensureArray<string>(includeColumns);
-  const safeKeyColumns = ensureArray<string>(keyColumns);
+  const safeFile = file || { columns: [], id: '', name: '', data: [], type: '', size: 0, selected: false, content: '' };
+  const safeColumns = ensureArray<string>(safeFile.columns || []);
+  const safeIncludeColumns = ensureArray<string>(includeColumns || []);
+  const safeKeyColumns = ensureArray<string>(keyColumns || []);
   
   // Convert columns to options format for SelectWithSearch with safety
   const columnOptions = React.useMemo(() => 

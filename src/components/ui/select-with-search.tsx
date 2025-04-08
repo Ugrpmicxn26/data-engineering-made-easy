@@ -39,7 +39,7 @@ export function SelectWithSearch({
   const [open, setOpen] = React.useState(false);
   
   // Ensure we have a valid options array with multiple safety checks
-  const safeOptions = ensureArray<SelectWithSearchOption>(options).filter(
+  const safeOptions = ensureArray<SelectWithSearchOption>(options || []).filter(
     option => option && typeof option === 'object' && 'value' in option && 'label' in option
   );
   
