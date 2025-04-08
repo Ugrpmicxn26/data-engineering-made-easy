@@ -30,6 +30,8 @@ const FileCard: React.FC<FileCardProps> = ({
   // Ensure file and columns are valid
   const safeFile = file || { columns: [], id: '', name: '', data: [] };
   const safeColumns = Array.isArray(safeFile.columns) ? safeFile.columns : [];
+  const safeIncludeColumns = Array.isArray(includeColumns) ? includeColumns : [];
+  const safeKeyColumns = Array.isArray(keyColumns) ? keyColumns : [];
   
   // Convert columns to options format for SelectWithSearch
   const columnOptions = React.useMemo(() => safeColumns.map(column => ({
@@ -63,7 +65,7 @@ const FileCard: React.FC<FileCardProps> = ({
           Key Columns
         </h4>
         
-        {keyColumns.map((column, index) => (
+        {safeKeyColumns.map((column, index) => (
           <div key={index} className="flex items-center gap-2">
             <SelectWithSearch
               value={column}
@@ -76,7 +78,7 @@ const FileCard: React.FC<FileCardProps> = ({
               variant="ghost" 
               size="icon" 
               onClick={() => onRemoveKeyColumn(index)}
-              disabled={keyColumns.length <= 1}
+              disabled={safeKeyColumns.length <= 1}
             >
               <MinusCircle className="h-4 w-4" />
             </Button>
@@ -87,7 +89,7 @@ const FileCard: React.FC<FileCardProps> = ({
           variant="outline"
           size="sm"
           onClick={onAddKeyColumn}
-          disabled={keyColumns.length === safeColumns.length}
+          disabled={safeKeyColumns.length === safeColumns.length}
           className="mt-2"
         >
           <PlusCircle className="mr-2 h-3.5 w-3.5" />
@@ -116,7 +118,7 @@ const FileCard: React.FC<FileCardProps> = ({
                 <div key={column} className="flex items-center space-x-2">
                   <Checkbox
                     id={`${safeFile.id}-${column}`}
-                    checked={includeColumns.includes(column)}
+                    checked={safeIncludeColumns.includes(column)}
                     onCheckedChange={() => onToggleColumn(column)}
                   />
                   <label

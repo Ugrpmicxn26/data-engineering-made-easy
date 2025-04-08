@@ -37,10 +37,12 @@ export function SelectWithSearch({
 }: SelectWithSearchProps) {
   const [open, setOpen] = React.useState(false);
   
-  // Ensure we're safely finding the selected option and handle undefined options
+  // Ensure we have a valid options array
   const safeOptions = Array.isArray(options) ? options : [];
+  
+  // Find the selected option safely with null checks throughout
   const selectedOption = React.useMemo(() => 
-    safeOptions.find(option => option.value === value), 
+    safeOptions.find(option => option?.value === value), 
     [safeOptions, value]
   );
 

@@ -44,7 +44,7 @@ const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
         return;
       }
 
-      const allColumns = fileToModify.columns;
+      const allColumns = Array.isArray(fileToModify.columns) ? fileToModify.columns : [];
       
       let columnsToExclude: string[];
       
@@ -100,12 +100,13 @@ const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
   const selectedCount = state.columnsToExclude.length;
   
   const selectedFile = safeSelectedFiles.find(f => f.id === state.dropColumnsFile);
-  const totalColumns = selectedFile?.columns.length || 0;
+  const totalColumns = selectedFile?.columns?.length || 0;
   
   const remainingCount = state.mode === "drop" 
     ? totalColumns - selectedCount 
     : selectedCount;
 
+  // Create file options safely
   const fileOptions = safeSelectedFiles.map(file => ({
     value: file.id,
     label: file.name
@@ -174,7 +175,7 @@ const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
               </h4>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-2 max-h-60 overflow-y-auto border rounded-md p-2">
-                {selectedFile.columns.map(column => (
+                {selectedFile && Array.isArray(selectedFile.columns) && selectedFile.columns.map(column => (
                   <div key={column} className="flex items-center space-x-2">
                     <Checkbox
                       id={`column-${state.dropColumnsFile}-${column}`}
@@ -194,7 +195,7 @@ const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
               <div className="mt-3 text-xs text-right">
                 <button 
                   onClick={() => {
-                    if (selectedFile) {
+                    if (selectedFile && Array.isArray(selectedFile.columns)) {
                       setState(prev => ({
                         ...prev,
                         columnsToExclude: [...selectedFile.columns]

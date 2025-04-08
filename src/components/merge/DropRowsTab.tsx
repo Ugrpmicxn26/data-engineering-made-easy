@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from "react";
 import { RowsIcon, ListFilter, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
   const [searchValue, setSearchValue] = useState("");
   const [keepSelected, setKeepSelected] = useState(false);
   
+  // Ensure safe access to arrays
   const safeSelectedFiles = Array.isArray(selectedFiles) ? selectedFiles : [];
   
   const fileOptions = useMemo(() => 
@@ -41,7 +43,9 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
     const selectedFile = safeSelectedFiles.find(f => f.id === state.dropRowsFile);
     if (!selectedFile) return [];
     
-    return selectedFile.columns.map(column => ({
+    // Ensure columns is an array
+    const safeColumns = Array.isArray(selectedFile.columns) ? selectedFile.columns : [];
+    return safeColumns.map(column => ({
       value: column,
       label: column
     }));
