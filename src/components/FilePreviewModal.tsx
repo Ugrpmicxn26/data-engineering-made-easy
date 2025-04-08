@@ -12,7 +12,7 @@ import { FileData } from "@/utils/fileUtils";
 import DataTable from "./DataTable";
 import { X } from "lucide-react";
 import { ensureArray } from "@/utils/type-correction";
-import { safelyToArray } from "@/utils/iterableUtils";
+import { superSafeToArray } from "@/utils/iterableUtils";
 
 interface FilePreviewModalProps {
   file: FileData | null;
@@ -27,8 +27,8 @@ const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ file, isOpen, onClo
   const safeData = React.useMemo(() => {
     if (!file || !file.data) return [];
     
-    // First try with safelyToArray for maximum safety
-    const result = safelyToArray(file.data);
+    // First try with superSafeToArray for maximum safety
+    const result = superSafeToArray(file.data);
     
     // If that fails, try with ensureArray as backup
     if (!result || result.length === 0) {

@@ -59,3 +59,69 @@ export const safelyToArray = <T>(value: any): T[] => {
   // For non-iterable values, return as single-item array
   return [value] as unknown as T[];
 };
+
+/**
+ * An even more robust function to safely handle iterables with additional checks
+ * This function adds extra defensive coding to handle edge cases like Maps, Sets, etc.
+ * 
+ * @param value Any value that needs to be safely converted to an array
+ * @returns A safe array guaranteed not to throw "undefined is not iterable" errors
+ */
+export const superSafeToArray = <T>(value: any): T[] => {
+  // Handle null/undefined immediately
+  if (value == null) return [];
+  
+  // Already an array, return as is (with null filter if requested)
+  if (Array.isArray(value)) {
+    return value;
+  }
+  
+  // Special handling for common iterable types
+  if (value instanceof Map) {
+    try {
+      return Array.from(value.values()) as T[];
+    } catch (e) {
+      return [];
+    }
+  }
+  
+  if (value instanceof Set) {
+    try {
+      return Array.from(value) as T[];
+    } catch (e) {
+      return [];
+    }
+  }
+  
+  // For string values, handle specially
+  if (typeof value === 'string') {
+    return [value] as unknown as T[];
+  }
+  
+  // For objects, try various approaches
+  if (typeof value === 'object') {
+    try {
+      // Check for iterable protocol
+      if (typeof value[Symbol.iterator] === 'function') {
+        try {
+          return [...value] as T[];
+        } catch (e) {
+          // Fallback if spread operator fails
+          try {
+            return Array.from(value) as T[];
+          } catch (e2) {
+            return [];
+          }
+        }
+      }
+      
+      // Return object values as fallback
+      return Object.values(value) as T[];
+    } catch (e) {
+      return [];
+    }
+  }
+  
+  // For primitive non-iterable values, wrap in array
+  return [value] as unknown as T[];
+};

@@ -58,3 +58,31 @@ export const safeArrayAccess = <T>(arr: T[] | null | undefined, index: number): 
   }
   return arr[index];
 };
+
+/**
+ * Ultra-safe array access - never throws exceptions under any circumstances
+ * @param arr - The array to access
+ * @param index - The index to check
+ * @returns The element at the index or undefined if any error occurs
+ */
+export const ultraSafeArrayAccess = <T>(arr: any, index: number): T | undefined => {
+  try {
+    if (arr === null || arr === undefined) return undefined;
+    if (!Array.isArray(arr)) {
+      // Try to convert to array if possible
+      if (typeof arr === 'object' && Symbol.iterator in Object(arr)) {
+        try {
+          const arrCopy = Array.from(arr as Iterable<T>);
+          return arrCopy[index];
+        } catch (e) {
+          return undefined;
+        }
+      }
+      return undefined;
+    }
+    if (index < 0 || index >= arr.length) return undefined;
+    return arr[index];
+  } catch (e) {
+    return undefined;
+  }
+};

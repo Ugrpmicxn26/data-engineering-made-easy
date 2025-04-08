@@ -2,6 +2,7 @@
 import React from "react";
 import DataTable from "@/components/DataTable";
 import { ensureArray } from "@/utils/type-correction";
+import { superSafeToArray } from "@/utils/iterableUtils";
 
 interface PythonDataPreviewProps {
   outputData: any[];
@@ -9,7 +10,17 @@ interface PythonDataPreviewProps {
 
 const PythonDataPreview: React.FC<PythonDataPreviewProps> = ({ outputData }) => {
   // Multiple safeguards to ensure we always have a valid array
-  const safeOutputData = ensureArray(outputData || []);
+  // First try with superSafeToArray for maximum safety
+  const safeOutputData = React.useMemo(() => {
+    const result = superSafeToArray(outputData);
+    
+    // If that fails, try with ensureArray as backup
+    if (!result || result.length === 0) {
+      return ensureArray(outputData || []);
+    }
+    
+    return result;
+  }, [outputData]);
   
   // Get columns count safely
   const columnsCount = safeOutputData.length > 0 && safeOutputData[0] !== null && typeof safeOutputData[0] === 'object'

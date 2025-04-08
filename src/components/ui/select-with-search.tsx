@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { ensureArray } from "@/utils/type-correction";
+import { superSafeToArray } from "@/utils/iterableUtils";
 
 export interface SelectWithSearchOption {
   value: string;
@@ -40,10 +41,21 @@ export function SelectWithSearch({
   
   // Ensure we have a valid options array with multiple safety checks
   const safeOptions = React.useMemo(() => {
-    const array = ensureArray<SelectWithSearchOption>(options || []);
+    // First try with superSafeToArray for maximum safety
+    const result = superSafeToArray<SelectWithSearchOption>(options);
+    
+    // If that fails, try with ensureArray as backup
+    if (!result || result.length === 0) {
+      const backupResult = ensureArray<SelectWithSearchOption>(options || []);
+      
+      // Add additional filtering to ensure each option has valid properties
+      return backupResult.filter(
+        option => option && typeof option === 'object' && 'value' in option && 'label' in option
+      );
+    }
     
     // Add additional filtering to ensure each option has valid properties
-    return array.filter(
+    return result.filter(
       option => option && typeof option === 'object' && 'value' in option && 'label' in option
     );
   }, [options]);
