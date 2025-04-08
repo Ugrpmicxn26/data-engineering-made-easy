@@ -1,4 +1,3 @@
-
 import { FileData } from "@/utils/fileUtils";
 
 export interface AIModel {
@@ -551,10 +550,9 @@ export const processLocalAI = async (prompt: string, fileData: FileData | null):
           let response = `Relationship between "${col1}" and "${col2}" in dataset "${fileData.name}":\n\n`;
           response += "Contingency table (counts of occurrences):\n\n";
           
-          // Create table header
+          // Create table header with proper number conversion for string lengths
           response += `| ${col1} \\ ${col2} | ${top5Val2.join(' | ')} |\n`;
-          // Fix line 417: Ensure both operands are properly converted to numbers
-          response += `| ${'---'.repeat(Math.max(1, Math.ceil(Number(col1.length) / 3)))} | ${top5Val2.map(val2 => '---'.repeat(Math.max(1, Math.ceil(Number(val2.length) / 3)))).join(' | ')} |\n`;
+          response += `| ${'---'.repeat(Math.max(1, Math.ceil(Number(col1.length) / 3)))} | ${top5Val2.map(val2 => '---'.repeat(Math.max(1, Math.ceil(Number(String(val2).length) / 3)))).join(' | ')} |\n`;
           
           // Create table rows
           for (const val1 of val1Categories) {
@@ -607,3 +605,56 @@ ${JSON.stringify(fileData.data.slice(0, 3), null, 2)}
 
 For more specific insights, try asking about particular columns or relationships between them.`;
 };
+
+export function generateContingencyTable(data: any[], col1: string, col2: string): string {
+  try {
+    if (!data || data.length === 0 || !col1 || !col2) {
+      return "Cannot generate contingency table: missing data or columns.";
+    }
+    
+    const contingencyTable: {[key: string]: {[key: string]: number}} = {};
+    
+    for (const row of data) {
+      const val1 = String(row[col1] || "(empty)");
+      const val2 = String(row[col2] || "(empty)");
+      
+      if (!contingencyTable[val1]) {
+        contingencyTable[val1] = {};
+      }
+      
+      if (!contingencyTable[val1][val2]) {
+        contingencyTable[val1][val2] = 0;
+      }
+      
+      contingencyTable[val1][val2]++;
+    }
+    
+    const val1Categories = Object.keys(contingencyTable).slice(0, 5);
+    const val2Categories = new Set<string>();
+    
+    for (const val1 of val1Categories) {
+      for (const val2 of Object.keys(contingencyTable[val1])) {
+        val2Categories.add(val2);
+      }
+    }
+    
+    const top5Val2 = Array.from(val2Categories).slice(0, 5);
+    
+    let response = "### Contingency Table\n\n";
+    
+    // Create table header with proper number conversion for string lengths
+    response += `| ${col1} \\ ${col2} | ${top5Val2.join(' | ')} |\n`;
+    response += `| ${'---'.repeat(Math.max(1, Math.ceil(Number(col1.length) / 3)))} | ${top5Val2.map(val2 => '---'.repeat(Math.max(1, Math.ceil(Number(String(val2).length) / 3)))).join(' | ')} |\n`;
+    
+    // Create table rows
+    for (const val1 of val1Categories) {
+      response += `| ${val1} | `;
+      response += top5Val2.map(val2 => contingencyTable[val1][val2] || 0).join(' | ');
+      response += ' |\n';
+    }
+    
+    return response;
+  } catch (error) {
+    return `Error generating contingency table: ${error instanceof Error ? error.message : "Unknown error"}`;
+  }
+}

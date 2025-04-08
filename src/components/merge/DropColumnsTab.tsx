@@ -1,8 +1,6 @@
-
 import React from "react";
 import { Trash2, ColumnsIcon, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import ConfigHeader from "./ConfigHeader";
 import { ActionTabProps, DropColumnsTabState } from "./types";
@@ -10,6 +8,7 @@ import { excludeColumns, generateCSV } from "@/utils/fileUtils";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { SelectWithSearch } from "@/components/ui/select-with-search";
 
 const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing, onComplete }) => {
   const [state, setState] = React.useState<DropColumnsTabState>({
@@ -101,6 +100,11 @@ const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
     ? totalColumns - selectedCount 
     : selectedCount;
 
+  const fileOptions = selectedFiles.map(file => ({
+    value: file.id,
+    label: file.name
+  }));
+
   return (
     <div className="space-y-4">
       <ConfigHeader 
@@ -111,7 +115,7 @@ const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
       <div className="p-4 bg-card rounded-lg border">
         <div className="mb-4">
           <label className="text-sm font-medium">Select File</label>
-          <Select
+          <SelectWithSearch
             value={state.dropColumnsFile || ""}
             onValueChange={(value) => {
               setState({
@@ -120,18 +124,11 @@ const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
                 columnsToExclude: []
               });
             }}
-          >
-            <SelectTrigger className="w-full mt-1">
-              <SelectValue placeholder="Choose a file" />
-            </SelectTrigger>
-            <SelectContent>
-              {selectedFiles.map(file => (
-                <SelectItem key={file.id} value={file.id}>
-                  {file.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            options={fileOptions}
+            placeholder="Choose a file"
+            className="w-full"
+            triggerClassName="mt-1"
+          />
         </div>
         
         {state.dropColumnsFile && (

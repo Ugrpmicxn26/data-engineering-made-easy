@@ -6,15 +6,9 @@ import DataTable from "./DataTable";
 import { toast } from "sonner";
 import { Type, Save, Table2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { SelectWithSearch } from "@/components/ui/select-with-search";
 
 interface ColumnTypeChangerProps {
   files: FileData[];
@@ -38,7 +32,29 @@ const ColumnTypeChanger: React.FC<ColumnTypeChangerProps> = ({ files, onTypeChan
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Reset state when opening
+  const fileOptions = files.map(file => ({
+    value: file.id,
+    label: file.name
+  }));
+
+  const getTypeOptions = (column: string) => {
+    const typeOptions = [
+      { value: 'text', label: 'Text' },
+      { value: 'integer', label: 'Integer' },
+      { value: 'decimal', label: 'Decimal' },
+      { value: 'date', label: 'Date' },
+      { value: 'boolean', label: 'Boolean' }
+    ];
+    
+    const change = typeChanges.find(tc => tc.column === column);
+    const currentType = change?.newType || columnTypes[column]?.type || 'text';
+    
+    return {
+      options: typeOptions,
+      value: currentType
+    };
+  };
+
   useEffect(() => {
     if (isOpen && files.length > 0) {
       if (!selectedFileId) {
@@ -47,7 +63,6 @@ const ColumnTypeChanger: React.FC<ColumnTypeChangerProps> = ({ files, onTypeChan
     }
   }, [isOpen, files, selectedFileId]);
 
-  // Update selected file and analyze columns when file selection changes
   useEffect(() => {
     if (selectedFileId) {
       const file = files.find(f => f.id === selectedFileId);
@@ -55,11 +70,9 @@ const ColumnTypeChanger: React.FC<ColumnTypeChangerProps> = ({ files, onTypeChan
         setSelectedFile(file);
         setPreviewData(file.data);
         
-        // Detect column types
         const detectedTypes = detectColumnTypes(file.data);
         setColumnTypes(detectedTypes);
         
-        // Reset type changes
         setTypeChanges([]);
       }
     }
@@ -68,24 +81,20 @@ const ColumnTypeChanger: React.FC<ColumnTypeChangerProps> = ({ files, onTypeChan
   const handleTypeChange = (column: string, newType: DataType) => {
     const currentType = columnTypes[column]?.type || 'text';
     
-    // Update or add the type change
     setTypeChanges(prev => {
       const existingChange = prev.find(tc => tc.column === column);
       
       if (existingChange) {
-        // If changing back to original type, remove the change
         if (newType === existingChange.originalType) {
           return prev.filter(tc => tc.column !== column);
         }
         
-        // Otherwise update the change
         return prev.map(tc => 
           tc.column === column 
             ? { ...tc, newType } 
             : tc
         );
       } else {
-        // Add new change
         return [...prev, { 
           column, 
           originalType: currentType, 
@@ -136,10 +145,8 @@ const ColumnTypeChanger: React.FC<ColumnTypeChangerProps> = ({ files, onTypeChan
     setIsProcessing(true);
     
     try {
-      // Create a copy of the data
       const transformedData = selectedFile.data.map(row => ({ ...row }));
       
-      // Apply each type change
       typeChanges.forEach(change => {
         transformedData.forEach(row => {
           row[change.column] = convertValue(row[change.column], change.newType);
@@ -198,18 +205,13 @@ const ColumnTypeChanger: React.FC<ColumnTypeChangerProps> = ({ files, onTypeChan
           </DialogHeader>
           
           <div className="grid grid-cols-[200px_1fr] gap-4 mb-4">
-            <Select value={selectedFileId} onValueChange={setSelectedFileId}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a file" />
-              </SelectTrigger>
-              <SelectContent>
-                {files.map(file => (
-                  <SelectItem key={file.id} value={file.id}>
-                    {file.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SelectWithSearch
+              value={selectedFileId}
+              onValueChange={setSelectedFileId}
+              options={fileOptions}
+              placeholder="Select a file"
+              className="w-full"
+            />
             
             <div className="flex justify-end gap-2">
               <Button 
@@ -237,7 +239,6 @@ const ColumnTypeChanger: React.FC<ColumnTypeChangerProps> = ({ files, onTypeChan
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-[350px_1fr] gap-4 flex-1 overflow-hidden">
-            {/* Column type selection panel */}
             <div className="border rounded-lg overflow-hidden flex flex-col">
               <div className="bg-muted p-2 text-sm font-medium">
                 Column Types
@@ -253,7 +254,7 @@ const ColumnTypeChanger: React.FC<ColumnTypeChangerProps> = ({ files, onTypeChan
                   </TableHeader>
                   <TableBody>
                     {Object.entries(columnTypes).map(([column, info]) => {
-                      const change = typeChanges.find(tc => tc.column === column);
+                      const { options, value } = getTypeOptions(column);
                       return (
                         <TableRow key={column}>
                           <TableCell className="font-medium truncate max-w-[120px]">
@@ -265,21 +266,13 @@ const ColumnTypeChanger: React.FC<ColumnTypeChangerProps> = ({ files, onTypeChan
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <Select 
-                              value={change?.newType || info.type} 
+                            <SelectWithSearch
+                              value={value}
                               onValueChange={(value) => handleTypeChange(column, value as DataType)}
-                            >
-                              <SelectTrigger className="w-full h-8">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="text">Text</SelectItem>
-                                <SelectItem value="integer">Integer</SelectItem>
-                                <SelectItem value="decimal">Decimal</SelectItem>
-                                <SelectItem value="date">Date</SelectItem>
-                                <SelectItem value="boolean">Boolean</SelectItem>
-                              </SelectContent>
-                            </Select>
+                              options={options}
+                              placeholder="Select type"
+                              triggerClassName="w-full h-8"
+                            />
                           </TableCell>
                         </TableRow>
                       );
@@ -289,7 +282,6 @@ const ColumnTypeChanger: React.FC<ColumnTypeChangerProps> = ({ files, onTypeChan
               </div>
             </div>
             
-            {/* Data preview panel */}
             <div className="border rounded-lg overflow-hidden flex flex-col">
               <div className="bg-muted p-2 text-sm font-medium">
                 Data Preview ({typeChanges.length > 0 ? "with type changes" : "original data"})

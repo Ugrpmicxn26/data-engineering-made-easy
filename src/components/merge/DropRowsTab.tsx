@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { RowsIcon, ListFilter, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +11,7 @@ import ConfigHeader from "./ConfigHeader";
 import { ActionTabProps, DropRowsTabState } from "./types";
 import { generateCSV } from "@/utils/fileUtils";
 import { toast } from "sonner";
+import { SelectWithSearch } from "@/components/ui/select-with-search";
 
 const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing, onComplete }) => {
   const [state, setState] = useState<DropRowsTabState>({
@@ -25,7 +25,23 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
   const [searchValue, setSearchValue] = useState("");
   const [keepSelected, setKeepSelected] = useState(false);
   
-  // Get unique values when column is selected
+  const fileOptions = selectedFiles.map(file => ({
+    value: file.id,
+    label: file.name
+  }));
+
+  const columnOptions = useMemo(() => {
+    if (!state.dropRowsFile) return [];
+    
+    const selectedFile = selectedFiles.find(f => f.id === state.dropRowsFile);
+    if (!selectedFile) return [];
+    
+    return selectedFile.columns.map(column => ({
+      value: column,
+      label: column
+    }));
+  }, [state.dropRowsFile, selectedFiles]);
+
   useEffect(() => {
     if (state.dropRowsFile && state.dropRowsColumn) {
       const fileData = files.find(file => file.id === state.dropRowsFile)?.data;
@@ -34,7 +50,6 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
           .map(row => String(row[state.dropRowsColumn!] || "").trim())
           .filter(Boolean);
           
-        // Get unique values and sort them
         const unique = [...new Set(values)].sort();
         setUniqueValues(unique);
         setSelectedValues([]);
@@ -45,7 +60,6 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
     }
   }, [state.dropRowsFile, state.dropRowsColumn, files]);
   
-  // Filter values based on search term
   const filteredValues = useMemo(() => {
     if (!searchValue.trim()) return uniqueValues;
     return uniqueValues.filter(value => 
@@ -92,16 +106,13 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
         return;
       }
 
-      // Filter rows based on selected values
       const filteredData = fileToModify.data.filter(row => {
         const columnValue = String(row[state.dropRowsColumn!] || "").trim();
         const valueIsSelected = selectedValues.includes(columnValue);
         
-        // Keep selected rows or filter them out based on toggle
         return keepSelected ? valueIsSelected : !valueIsSelected;
       });
       
-      // Generate new CSV content and calculate size
       const newContent = generateCSV(filteredData);
       const newSize = new Blob([newContent]).size;
 
@@ -135,7 +146,7 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
       <div className="p-4 bg-card rounded-lg border">
         <div className="mb-4">
           <label className="text-sm font-medium">Select File</label>
-          <Select
+          <SelectWithSearch
             value={state.dropRowsFile || ""}
             onValueChange={(value) => {
               setState({
@@ -144,41 +155,25 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
                 dropRowsValues: ""
               });
             }}
-          >
-            <SelectTrigger className="w-full mt-1">
-              <SelectValue placeholder="Choose a file" />
-            </SelectTrigger>
-            <SelectContent>
-              {selectedFiles.map(file => (
-                <SelectItem key={file.id} value={file.id}>
-                  {file.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            options={fileOptions}
+            placeholder="Choose a file"
+            className="w-full"
+            triggerClassName="mt-1"
+          />
         </div>
         
         {state.dropRowsFile && (
           <>
             <div className="mb-4">
               <label className="text-sm font-medium">Select Column to Filter On</label>
-              <Select
+              <SelectWithSearch
                 value={state.dropRowsColumn || ""}
                 onValueChange={(value) => setState(prev => ({ ...prev, dropRowsColumn: value }))}
-              >
-                <SelectTrigger className="w-full mt-1">
-                  <SelectValue placeholder="Choose a column" />
-                </SelectTrigger>
-                <SelectContent>
-                  {selectedFiles
-                    .find(f => f.id === state.dropRowsFile)
-                    ?.columns.map(column => (
-                      <SelectItem key={column} value={column}>
-                        {column}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+                options={columnOptions}
+                placeholder="Choose a column"
+                className="w-full"
+                triggerClassName="mt-1"
+              />
             </div>
             
             {state.dropRowsColumn && (

@@ -1,11 +1,12 @@
 
 import React from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Key, PlusCircle, MinusCircle } from "lucide-react";
+import { Key, PlusCircle, MinusCircle, Search } from "lucide-react";
 import { FileData } from "@/utils/fileUtils";
+import { SelectWithSearch } from "@/components/ui/select-with-search";
+import { Input } from "@/components/ui/input";
 
 interface FileCardProps {
   file: FileData;
@@ -26,6 +27,20 @@ const FileCard: React.FC<FileCardProps> = ({
   onKeyColumnChange,
   onToggleColumn,
 }) => {
+  // Convert columns to options format for SelectWithSearch
+  const columnOptions = file.columns.map(column => ({
+    value: column,
+    label: column
+  }));
+
+  // State for column search
+  const [columnSearchTerm, setColumnSearchTerm] = React.useState("");
+  
+  // Filter columns based on search term
+  const filteredColumns = columnSearchTerm 
+    ? file.columns.filter(col => col.toLowerCase().includes(columnSearchTerm.toLowerCase()))
+    : file.columns;
+
   return (
     <div className="p-4 bg-card rounded-lg border">
       <div className="mb-3">
@@ -43,21 +58,13 @@ const FileCard: React.FC<FileCardProps> = ({
         
         {keyColumns.map((column, index) => (
           <div key={index} className="flex items-center gap-2">
-            <Select
+            <SelectWithSearch
               value={column}
               onValueChange={(value) => onKeyColumnChange(index, value)}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select a column" />
-              </SelectTrigger>
-              <SelectContent>
-                {file.columns.map(col => (
-                  <SelectItem key={col} value={col}>
-                    {col}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              options={columnOptions}
+              placeholder="Select a column"
+              triggerClassName="w-[180px]"
+            />
             <Button 
               variant="ghost" 
               size="icon" 
@@ -88,8 +95,17 @@ const FileCard: React.FC<FileCardProps> = ({
           </TabsList>
           
           <TabsContent value="include" className="mt-3">
+            <div className="relative mb-3">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="Search columns..." 
+                className="pl-8"
+                value={columnSearchTerm}
+                onChange={(e) => setColumnSearchTerm(e.target.value)}
+              />
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-              {file.columns.map(column => (
+              {filteredColumns.map(column => (
                 <div key={column} className="flex items-center space-x-2">
                   <Checkbox
                     id={`${file.id}-${column}`}
