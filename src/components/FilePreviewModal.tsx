@@ -12,6 +12,7 @@ import { FileData } from "@/utils/fileUtils";
 import DataTable from "./DataTable";
 import { X } from "lucide-react";
 import { ensureArray } from "@/utils/type-correction";
+import { safelyToArray } from "@/utils/iterableUtils";
 
 interface FilePreviewModalProps {
   file: FileData | null;
@@ -22,10 +23,19 @@ interface FilePreviewModalProps {
 const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ file, isOpen, onClose }) => {
   if (!file) return null;
 
-  // Ensure file data is an array with defensive programming
+  // Multiple layers of defense for ensuring file data is an array
   const safeData = React.useMemo(() => {
     if (!file || !file.data) return [];
-    return ensureArray(file.data);
+    
+    // First try with safelyToArray for maximum safety
+    const result = safelyToArray(file.data);
+    
+    // If that fails, try with ensureArray as backup
+    if (!result || result.length === 0) {
+      return ensureArray(file.data);
+    }
+    
+    return result;
   }, [file]);
 
   return (

@@ -10,7 +10,7 @@
  */
 export const ensureNumber = (value: any): number => {
   if (value === null || value === undefined) return 0;
-  if (typeof value === 'number') return value;
+  if (typeof value === 'number') return isNaN(value) ? 0 : value;
   
   const parsed = Number(value);
   return isNaN(parsed) ? 0 : parsed;
@@ -28,12 +28,20 @@ export const ensureArray = <T>(value: any): T[] => {
   // Check if value is an iterable object and not a string
   if (typeof value === 'object' && value !== null && typeof value !== 'string') {
     try {
+      // First check if it has Symbol.iterator before trying to use it
       if (Symbol.iterator in Object(value)) {
-        return Array.from(value as Iterable<T>);
+        try {
+          return Array.from(value as Iterable<T>);
+        } catch (error) {
+          console.error("Failed to convert iterable to array:", error);
+          return [];
+        }
       }
-      return [];
+      
+      // If it's an object but not iterable, use object values
+      return Object.values(value) as T[];
     } catch (error) {
-      console.error("Failed to convert iterable to array:", error);
+      console.error("Error processing object:", error);
       return [];
     }
   }
@@ -65,5 +73,12 @@ export const ensureObject = <T extends object>(obj: T | null | undefined, defaul
 export const ensureString = (value: any): string => {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value;
-  return String(value);
+  
+  // Handle potential errors when converting objects to strings
+  try {
+    return String(value);
+  } catch (error) {
+    console.error("Error converting to string:", error);
+    return '';
+  }
 };

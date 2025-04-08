@@ -30,14 +30,28 @@ export const safelyToArray = <T>(value: any): T[] => {
   if (
     typeof value === 'object' && 
     value !== null && 
-    Symbol.iterator in Object(value) && 
     typeof value !== 'string'
   ) {
     try {
-      // Safely convert iterable to array
-      return Array.from(value as Iterable<T>);
+      // First check if it has Symbol.iterator before trying to use it
+      if (Symbol.iterator in Object(value)) {
+        // Safely convert iterable to array with a try/catch
+        try {
+          return Array.from(value as Iterable<T>);
+        } catch (error) {
+          console.error("Failed to convert iterable to array:", error);
+          return [];
+        }
+      }
+      
+      // If it's an object but not iterable, convert object values to array
+      if (Object.keys(value).length > 0) {
+        return Object.values(value) as T[];
+      }
+      
+      return [];
     } catch (error) {
-      console.error("Failed to convert iterable to array:", error);
+      console.error("Error processing object to array:", error);
       return [];
     }
   }

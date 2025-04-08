@@ -1,12 +1,22 @@
 
 /**
+ * Utility functions to fix TypeScript type errors and handle potential undefined values
+ */
+
+/**
  * Converts a number to string to fix TypeScript type errors
  * @param value - The number to convert to string
  * @returns The string representation of the number
  */
 export const numToString = (value: number | string | null | undefined): string => {
   if (value === null || value === undefined) return '';
-  return String(value);
+  
+  try {
+    return String(value);
+  } catch (error) {
+    console.error("Error converting number to string:", error);
+    return '';
+  }
 };
 
 /**
@@ -16,8 +26,35 @@ export const numToString = (value: number | string | null | undefined): string =
  */
 export const stringToNum = (value: string | number | null | undefined): number => {
   if (value === null || value === undefined) return 0;
-  if (typeof value === 'number') return value;
+  if (typeof value === 'number') return isNaN(value) ? 0 : value;
   
-  const num = parseFloat(String(value));
-  return isNaN(num) ? 0 : num;
+  try {
+    const num = parseFloat(String(value));
+    return isNaN(num) ? 0 : num;
+  } catch (error) {
+    console.error("Error converting string to number:", error);
+    return 0;
+  }
+};
+
+/**
+ * Safely checks if a value exists
+ * @param value - The value to check
+ * @returns Boolean indicating if the value exists and is not null/undefined
+ */
+export const exists = <T>(value: T | null | undefined): value is T => {
+  return value !== null && value !== undefined;
+};
+
+/**
+ * Safely accesses array elements with bounds checking
+ * @param arr - The array to access
+ * @param index - The index to check
+ * @returns The element at the index or undefined if out of bounds
+ */
+export const safeArrayAccess = <T>(arr: T[] | null | undefined, index: number): T | undefined => {
+  if (!arr || index < 0 || index >= arr.length) {
+    return undefined;
+  }
+  return arr[index];
 };
