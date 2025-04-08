@@ -3,7 +3,7 @@
  * Utility functions to ensure correct type handling in operations
  */
 
-import { superSafeToArray, isSafelyIterable } from "./iterableUtils";
+import { superSafeToArray, isSafelyIterable, makeSafelyIterable } from "./iterableUtils";
 
 /**
  * Ensures the value is a number before performing arithmetic operations
@@ -25,10 +25,16 @@ export const ensureNumber = (value: any): number => {
 
 /**
  * Ensures the value is an array before performing iterations
+ * Enhanced with multiple layers of protection
  * @param value Any value that should be treated as an array
  * @returns A safe array or empty array if input isn't iterable
  */
 export const ensureArray = <T>(value: any): T[] => {
+  // Handle null/undefined immediately
+  if (value === null || value === undefined) {
+    return [];
+  }
+  
   // First check if the value is iterable
   if (!isSafelyIterable(value) && value !== null && value !== undefined) {
     // For non-iterable but existing values, wrap in array
@@ -43,6 +49,7 @@ export const ensureArray = <T>(value: any): T[] => {
     return [value] as unknown as T[];
   }
   
+  // Use the most robust array conversion method
   return superSafeToArray<T>(value);
 };
 
@@ -118,4 +125,14 @@ export const safeFn = <T>(fn: () => T, defaultValue: T): T => {
   } catch (e) {
     return defaultValue;
   }
+};
+
+/**
+ * Creates a safe iterable proxy for any value
+ * Useful when you need to iterate over something that might not be iterable
+ * @param value The value to safely iterate over
+ * @returns A safe iterable that won't throw errors
+ */
+export const ensureIterable = <T>(value: any): Iterable<T> => {
+  return makeSafelyIterable<T>(value);
 };

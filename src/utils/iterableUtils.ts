@@ -61,8 +61,8 @@ export const safelyToArray = <T>(value: any): T[] => {
 };
 
 /**
- * An even more robust function to safely handle iterables with additional checks
- * This function adds extra defensive coding to handle edge cases like Maps, Sets, etc.
+ * An ultra-robust function to safely handle iterables with additional checks
+ * This function adds multiple defensive layers to prevent any "undefined is not iterable" errors
  * 
  * @param value Any value that needs to be safely converted to an array
  * @returns A safe array guaranteed not to throw "undefined is not iterable" errors
@@ -73,8 +73,13 @@ export const superSafeToArray = <T>(value: any): T[] => {
   
   // Already an array, return as is (with null filter if requested)
   if (Array.isArray(value)) {
-    // Ensure no undefined or null values in the array
-    return value.filter(item => item !== undefined && item !== null) as T[];
+    try {
+      // Ensure no undefined or null values in the array
+      return value.filter(item => item !== undefined && item !== null) as T[];
+    } catch (e) {
+      console.warn("Error filtering array:", e);
+      return [];
+    }
   }
   
   // Special handling for common iterable types
@@ -101,25 +106,34 @@ export const superSafeToArray = <T>(value: any): T[] => {
     return [value] as unknown as T[];
   }
   
-  // For objects, try various approaches
+  // For objects, try various approaches with multiple fallbacks
   if (typeof value === 'object' && value !== null) {
+    // Try multiple methods to safely convert to array, with each wrapped in try/catch
     try {
-      // Check for iterable protocol
+      // First attempt: Check for iterable protocol
       if (typeof value[Symbol.iterator] === 'function') {
         try {
           // Using Array.from in a try/catch for maximum safety
-          return Array.from(value as any) as T[];
+          return Array.from(value as Iterable<T>);
         } catch (e) {
-          // If Array.from fails, try Object.values as fallback
-          console.warn("Array.from failed for object with Symbol.iterator:", e);
-          return Object.values(value) as T[];
+          // If Array.from fails, continue to fallbacks
+          console.warn("Array.from failed on iterable object:", e);
         }
       }
       
-      // Return object values as fallback
-      return Object.values(value) as T[];
+      // Second attempt: Use Object.entries if the value has properties
+      try {
+        if (Object.keys(value).length > 0) {
+          return Object.values(value) as T[];
+        }
+      } catch (e) {
+        console.warn("Object.values approach failed:", e);
+      }
+      
+      // Last fallback: Just return an empty array
+      return [];
     } catch (e) {
-      console.warn("Failed to convert object to array:", e);
+      console.warn("All array conversion approaches failed:", e);
       return [];
     }
   }
@@ -129,7 +143,7 @@ export const superSafeToArray = <T>(value: any): T[] => {
 };
 
 /**
- * Extremely safe array access that never throws an error
+ * Ultra-safe array access that never throws an error
  * @param arr The array to access
  * @param index The index to access
  * @returns The element or undefined
@@ -168,3 +182,42 @@ export const isSafelyIterable = (value: any): boolean => {
     return false;
   }
 };
+
+/**
+ * Creates a safe proxy around potentially undefined iterables
+ * Useful when you need to work with a value that might not be iterable
+ * @param value The value to make safely iterable
+ * @returns An object that can be safely used in for...of loops
+ */
+export const makeSafelyIterable = <T>(value: any): Iterable<T> => {
+  // Create a safe iterable that won't throw errors
+  return {
+    [Symbol.iterator]: function* () {
+      if (value == null) return;
+      
+      try {
+        if (Array.isArray(value)) {
+          yield* value;
+          return;
+        }
+        
+        if (typeof value === 'object' && typeof value[Symbol.iterator] === 'function') {
+          yield* value;
+          return;
+        }
+        
+        if (typeof value === 'object') {
+          yield* Object.values(value);
+          return;
+        }
+        
+        // If it's a primitive value, yield it as a single item
+        yield value as T;
+      } catch (e) {
+        console.warn("Error yielding from iterable:", e);
+        // Yield nothing on error
+      }
+    }
+  };
+};
+

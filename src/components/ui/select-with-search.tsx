@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { ensureArray } from "@/utils/type-correction";
-import { superSafeToArray, isSafelyIterable } from "@/utils/iterableUtils";
+import { superSafeToArray, isSafelyIterable, makeSafelyIterable } from "@/utils/iterableUtils";
 
 export interface SelectWithSearchOption {
   value: string;
@@ -41,32 +41,44 @@ export function SelectWithSearch({
   
   // Ensure we have a valid options array with multiple safety checks
   const safeOptions = React.useMemo(() => {
-    // First check if options is iterable
+    // Handle null/undefined case first
+    if (options === null || options === undefined) {
+      console.warn("SelectWithSearch received null/undefined options");
+      return [];
+    }
+    
+    // Check if options is iterable
     if (!isSafelyIterable(options)) {
       console.warn("SelectWithSearch received non-iterable options:", options);
       return [];
     }
     
-    // First try with superSafeToArray for maximum safety
+    // Use multiple methods to ensure valid options
     try {
+      // First try with superSafeToArray
       const result = superSafeToArray<SelectWithSearchOption>(options);
       
-      // If that fails, try with ensureArray as backup
+      // If that fails, try with ensureArray
       if (!result || result.length === 0) {
-        const backupResult = ensureArray<SelectWithSearchOption>(options || []);
-        
-        // Add additional filtering to ensure each option has valid properties
-        return backupResult.filter(
-          option => option && typeof option === 'object' && 'value' in option && 'label' in option
-        );
+        try {
+          const backupResult = ensureArray<SelectWithSearchOption>(options);
+          
+          // Add filtering to ensure each option has valid properties
+          return backupResult.filter(
+            option => option && typeof option === 'object' && 'value' in option && 'label' in option
+          );
+        } catch (e) {
+          console.error("Error in SelectWithSearch backup conversion:", e);
+          return [];
+        }
       }
       
-      // Add additional filtering to ensure each option has valid properties
+      // Add filtering to ensure each option has valid properties
       return result.filter(
         option => option && typeof option === 'object' && 'value' in option && 'label' in option
       );
     } catch (e) {
-      console.error("Error processing options in SelectWithSearch:", e);
+      console.error("Critical error processing options in SelectWithSearch:", e);
       return [];
     }
   }, [options]);
@@ -76,7 +88,7 @@ export function SelectWithSearch({
     if (!safeOptions || safeOptions.length === 0) return null;
     
     try {
-      return safeOptions.find(option => option && option.value === value);
+      return safeOptions.find(option => option && option.value === value) || null;
     } catch (e) {
       console.warn("Error finding selected option:", e);
       return null;
@@ -101,9 +113,9 @@ export function SelectWithSearch({
           <CommandInput placeholder={placeholder} className="h-9" />
           <CommandEmpty>{emptyMessage}</CommandEmpty>
           <CommandGroup className="max-h-60 overflow-auto">
-            {safeOptions.map((option) => (
+            {safeOptions.map((option, index) => (
               <CommandItem
-                key={option.value}
+                key={`${option.value}-${index}`}
                 value={option.value}
                 onSelect={(currentValue) => {
                   onValueChange(currentValue);

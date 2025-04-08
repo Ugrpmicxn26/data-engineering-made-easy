@@ -12,7 +12,7 @@ import { FileData } from "@/utils/fileUtils";
 import DataTable from "./DataTable";
 import { X } from "lucide-react";
 import { ensureArray } from "@/utils/type-correction";
-import { superSafeToArray, isSafelyIterable } from "@/utils/iterableUtils";
+import { superSafeToArray, isSafelyIterable, makeSafelyIterable } from "@/utils/iterableUtils";
 
 interface FilePreviewModalProps {
   file: FileData | null;
@@ -37,25 +37,32 @@ const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ file, isOpen, onClo
       return [];
     }
     
-    // First try with superSafeToArray for maximum safety
+    // Use multiple methods to convert to array with fallbacks
     try {
+      // First try with superSafeToArray for maximum safety
       const result = superSafeToArray(file.data);
       
       // If that fails, try with ensureArray as backup
       if (!result || result.length === 0) {
-        const backupResult = ensureArray(file.data);
-        
-        // If backupResult is also empty, log warning
-        if (!backupResult || backupResult.length === 0) {
-          console.warn("Both array conversion methods failed in FilePreviewModal for:", file.data);
+        try {
+          const backupResult = ensureArray(file.data);
+          
+          // If backupResult is also empty, create a safe empty array
+          if (!backupResult || backupResult.length === 0) {
+            console.warn("Both array conversion methods failed in FilePreviewModal for:", file.data);
+            return [];
+          }
+          
+          return backupResult;
+        } catch (e) {
+          console.error("Error in FilePreviewModal backup conversion:", e);
+          return [];
         }
-        
-        return backupResult;
       }
       
       return result;
     } catch (e) {
-      console.error("Error in FilePreviewModal preparing data:", e);
+      console.error("Critical error in FilePreviewModal preparing data:", e);
       return [];
     }
   }, [file]);
