@@ -26,9 +26,12 @@ export const ensureArray = <T>(value: any): T[] => {
   if (Array.isArray(value)) return value;
   
   // Check if value is an iterable object and not a string
-  if (typeof value === 'object' && value !== null && Symbol.iterator in Object(value) && typeof value !== 'string') {
+  if (typeof value === 'object' && value !== null && typeof value !== 'string') {
     try {
-      return Array.from(value as Iterable<T>);
+      if (Symbol.iterator in Object(value)) {
+        return Array.from(value as Iterable<T>);
+      }
+      return [];
     } catch (error) {
       console.error("Failed to convert iterable to array:", error);
       return [];
@@ -40,6 +43,27 @@ export const ensureArray = <T>(value: any): T[] => {
     return [value] as unknown as T[];
   }
   
-  // For other non-iterable values, return an empty array
-  return [];
+  // For other non-iterable values, return single item array
+  return [value] as unknown as T[];
+};
+
+/**
+ * Ensures a safe object access that won't throw errors
+ * @param obj The object to access
+ * @param defaultValue Default value if obj is null/undefined
+ * @returns The object or default value
+ */
+export const ensureObject = <T extends object>(obj: T | null | undefined, defaultValue: T): T => {
+  return obj === null || obj === undefined ? defaultValue : obj;
+};
+
+/**
+ * Ensures string value is safe to use
+ * @param value Any value that should be treated as a string
+ * @returns A string representation or empty string if value is null/undefined
+ */
+export const ensureString = (value: any): string => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  return String(value);
 };

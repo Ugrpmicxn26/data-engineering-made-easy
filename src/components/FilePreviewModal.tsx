@@ -22,8 +22,11 @@ interface FilePreviewModalProps {
 const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ file, isOpen, onClose }) => {
   if (!file) return null;
 
-  // Ensure file data is an array
-  const safeData = ensureArray(file.data || []);
+  // Ensure file data is an array with defensive programming
+  const safeData = React.useMemo(() => {
+    if (!file || !file.data) return [];
+    return ensureArray(file.data);
+  }, [file]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
