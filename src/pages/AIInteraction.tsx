@@ -760,7 +760,7 @@ const AIInteraction: React.FC = () => {
             
             // Create table header
             response += `| ${col1} \\ ${col2} | ${top5Val2.join(' | ')} |\n`;
-            response += `| ${'---'.repeat(col1.length / 3)} | ${top5Val2.map(val => '---'.repeat(val.length / 3)).join(' | ')} |\n`;
+            response += `| ${'---'.repeat(Math.max(1, Math.ceil(col1.length / 3)))} | ${top5Val2.map(val => '---'.repeat(Math.max(1, Math.ceil(val.length / 3)))).join(' | ')} |\n`;
             
             // Create table rows
             for (const val1 of val1Categories) {
@@ -813,91 +813,6 @@ ${JSON.stringify(fileData.data.slice(0, 3), null, 2)}
 
 For more specific insights, try asking about particular columns or relationships between them.`;
   };
-
-  const handleFilesProcessed = (newFiles: FileData[]) => {
-    setAvailableFiles(prevFiles => {
-      const updatedFiles = [...prevFiles, ...newFiles];
-      sessionStore.createStore('files', updatedFiles);
-      return updatedFiles;
-    });
-
-    if (newFiles.length > 0 && !selectedFile) {
-      setSelectedFile(newFiles[0].id);
-    }
-
-    toast.success(`${newFiles.length} file(s) added for AI analysis`);
-  };
-
-  useEffect(() => {
-    const files = sessionStore.getStore('files');
-    if (files && files.length > 0) {
-      setAvailableFiles(files);
-      if (files.length > 0 && !selectedFile) {
-        setSelectedFile(files[0].id);
-      }
-    }
-
-    const savedMessages = sessionStore.getStore('ai-chat-messages');
-    if (savedMessages && savedMessages.length > 0) {
-      setMessages(savedMessages);
-    } else {
-      const welcomeMessage: Message = {
-        id: `system-${Date.now()}`,
-        role: "assistant",
-        content: "Hello! I'm your AI data assistant. Upload data files in the main app or using the upload tab, and I can help you analyze them. You can use the local model without any API key, or choose cloud models by providing your API keys in the settings tab.",
-        timestamp: Date.now(),
-        model: "system"
-      };
-      setMessages([welcomeMessage]);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (messages.length > 0) {
-      sessionStore.createStore('ai-chat-messages', messages);
-    }
-  }, [messages]);
-
-  useEffect(() => {
-    if (openAIKey) {
-      localStorage.setItem("openai-api-key", openAIKey);
-    }
-    
-    if (perplexityKey) {
-      localStorage.setItem("perplexity-api-key", perplexityKey);
-    }
-
-    if (mistralKey) {
-      localStorage.setItem("mistral-api-key", mistralKey);
-    }
-  }, [openAIKey, perplexityKey, mistralKey]);
-
-  useEffect(() => {
-    let interval: number | undefined;
-    
-    if (isLoading) {
-      setLoadingProgress(0);
-      interval = window.setInterval(() => {
-        setLoadingProgress(prev => {
-          if (prev < 90) {
-            const increment = Math.random() * 10;
-            return Math.min(prev + increment, 90);
-          }
-          return prev;
-        });
-      }, 300);
-    } else {
-      setLoadingProgress(100);
-      const timeout = setTimeout(() => {
-        setLoadingProgress(0);
-      }, 500);
-      return () => clearTimeout(timeout);
-    }
-    
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isLoading]);
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -955,22 +870,20 @@ For more specific insights, try asking about particular columns or relationships
                   </Button>
                 </div>
                 
-                <ToggleGroup type="single" value={selectedModel} onValueChange={(value) => value && setSelectedModel(value)} className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1">
                   {models.map(model => (
-                    <ToggleGroupItem 
+                    <Button 
                       key={model.id} 
-                      value={model.id}
-                      className={cn(
-                        "flex items-center gap-1.5 h-8 text-xs rounded-md", 
-                        selectedModel === model.id ? "bg-primary text-primary-foreground" : ""
-                      )}
-                      aria-label={model.name}
+                      variant={selectedModel === model.id ? "default" : "outline"}
+                      size="sm"
+                      className="flex items-center gap-1.5 h-8 text-xs rounded-md"
+                      onClick={() => setSelectedModel(model.id)}
                     >
                       <span className="w-4 text-center">{model.avatar}</span>
                       <span className="hidden sm:inline">{model.name}</span>
-                    </ToggleGroupItem>
+                    </Button>
                   ))}
-                </ToggleGroup>
+                </div>
               </div>
               
               <ScrollArea className="flex-1 p-4">
