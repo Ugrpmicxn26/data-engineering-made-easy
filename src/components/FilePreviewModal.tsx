@@ -12,7 +12,7 @@ import { FileData } from "@/utils/fileUtils";
 import DataTable from "./DataTable";
 import { X } from "lucide-react";
 import { ensureArray } from "@/utils/type-correction";
-import { superSafeToArray } from "@/utils/iterableUtils";
+import { superSafeToArray, isSafelyIterable } from "@/utils/iterableUtils";
 
 interface FilePreviewModalProps {
   file: FileData | null;
@@ -25,17 +25,39 @@ const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ file, isOpen, onClo
 
   // Multiple layers of defense for ensuring file data is an array
   const safeData = React.useMemo(() => {
-    if (!file || !file.data) return [];
-    
-    // First try with superSafeToArray for maximum safety
-    const result = superSafeToArray(file.data);
-    
-    // If that fails, try with ensureArray as backup
-    if (!result || result.length === 0) {
-      return ensureArray(file.data);
+    // Early safety check
+    if (!file || !file.data) {
+      console.warn("FilePreviewModal: Missing file data");
+      return [];
     }
     
-    return result;
+    // Check if data is iterable first
+    if (!isSafelyIterable(file.data)) {
+      console.warn("FilePreviewModal: Non-iterable data received:", file.data);
+      return [];
+    }
+    
+    // First try with superSafeToArray for maximum safety
+    try {
+      const result = superSafeToArray(file.data);
+      
+      // If that fails, try with ensureArray as backup
+      if (!result || result.length === 0) {
+        const backupResult = ensureArray(file.data);
+        
+        // If backupResult is also empty, log warning
+        if (!backupResult || backupResult.length === 0) {
+          console.warn("Both array conversion methods failed in FilePreviewModal for:", file.data);
+        }
+        
+        return backupResult;
+      }
+      
+      return result;
+    } catch (e) {
+      console.error("Error in FilePreviewModal preparing data:", e);
+      return [];
+    }
   }, [file]);
 
   return (

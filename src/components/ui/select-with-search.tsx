@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { ensureArray } from "@/utils/type-correction";
-import { superSafeToArray } from "@/utils/iterableUtils";
+import { superSafeToArray, isSafelyIterable } from "@/utils/iterableUtils";
 
 export interface SelectWithSearchOption {
   value: string;
@@ -41,30 +41,47 @@ export function SelectWithSearch({
   
   // Ensure we have a valid options array with multiple safety checks
   const safeOptions = React.useMemo(() => {
-    // First try with superSafeToArray for maximum safety
-    const result = superSafeToArray<SelectWithSearchOption>(options);
-    
-    // If that fails, try with ensureArray as backup
-    if (!result || result.length === 0) {
-      const backupResult = ensureArray<SelectWithSearchOption>(options || []);
-      
-      // Add additional filtering to ensure each option has valid properties
-      return backupResult.filter(
-        option => option && typeof option === 'object' && 'value' in option && 'label' in option
-      );
+    // First check if options is iterable
+    if (!isSafelyIterable(options)) {
+      console.warn("SelectWithSearch received non-iterable options:", options);
+      return [];
     }
     
-    // Add additional filtering to ensure each option has valid properties
-    return result.filter(
-      option => option && typeof option === 'object' && 'value' in option && 'label' in option
-    );
+    // First try with superSafeToArray for maximum safety
+    try {
+      const result = superSafeToArray<SelectWithSearchOption>(options);
+      
+      // If that fails, try with ensureArray as backup
+      if (!result || result.length === 0) {
+        const backupResult = ensureArray<SelectWithSearchOption>(options || []);
+        
+        // Add additional filtering to ensure each option has valid properties
+        return backupResult.filter(
+          option => option && typeof option === 'object' && 'value' in option && 'label' in option
+        );
+      }
+      
+      // Add additional filtering to ensure each option has valid properties
+      return result.filter(
+        option => option && typeof option === 'object' && 'value' in option && 'label' in option
+      );
+    } catch (e) {
+      console.error("Error processing options in SelectWithSearch:", e);
+      return [];
+    }
   }, [options]);
   
   // Find the selected option safely
-  const selectedOption = React.useMemo(() => 
-    safeOptions.find(option => option && option.value === value), 
-    [safeOptions, value]
-  );
+  const selectedOption = React.useMemo(() => {
+    if (!safeOptions || safeOptions.length === 0) return null;
+    
+    try {
+      return safeOptions.find(option => option && option.value === value);
+    } catch (e) {
+      console.warn("Error finding selected option:", e);
+      return null;
+    }
+  }, [safeOptions, value]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
