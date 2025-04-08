@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from "react";
 import { RowsIcon, ListFilter, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,7 @@ import { ActionTabProps, DropRowsTabState } from "./types";
 import { generateCSV } from "@/utils/fileUtils";
 import { toast } from "sonner";
 import { SelectWithSearch } from "@/components/ui/select-with-search";
+import { ensureArray } from "@/utils/type-correction";
 
 const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing, onComplete }) => {
   const [state, setState] = useState<DropRowsTabState>({
@@ -26,39 +26,40 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
   const [searchValue, setSearchValue] = useState("");
   const [keepSelected, setKeepSelected] = useState(false);
   
-  // Ensure safe access to arrays
-  const safeSelectedFiles = Array.isArray(selectedFiles) ? selectedFiles : [];
+  const safeFiles = ensureArray(files);
+  const safeSelectedFiles = ensureArray(selectedFiles);
   
   const fileOptions = useMemo(() => 
-    safeSelectedFiles.map(file => ({
-      value: file.id,
-      label: file.name
-    })), 
+    safeSelectedFiles
+      .filter(file => file && typeof file === 'object')
+      .map(file => ({
+        value: file.id,
+        label: file.name
+      })), 
     [safeSelectedFiles]
   );
 
   const columnOptions = useMemo(() => {
     if (!state.dropRowsFile) return [];
     
-    const selectedFile = safeSelectedFiles.find(f => f.id === state.dropRowsFile);
+    const selectedFile = safeSelectedFiles.find(f => f && f.id === state.dropRowsFile);
     if (!selectedFile) return [];
     
-    // Ensure columns is an array
-    const safeColumns = Array.isArray(selectedFile.columns) ? selectedFile.columns : [];
+    const safeColumns = ensureArray<string>(selectedFile.columns);
     return safeColumns.map(column => ({
-      value: column,
-      label: column
+      value: String(column),
+      label: String(column)
     }));
   }, [state.dropRowsFile, safeSelectedFiles]);
 
   useEffect(() => {
     if (state.dropRowsFile && state.dropRowsColumn) {
-      const safeFiles = Array.isArray(files) ? files : [];
-      const selectedFile = safeFiles.find(file => file.id === state.dropRowsFile);
+      const selectedFile = safeFiles.find(file => file && file.id === state.dropRowsFile);
       const fileData = selectedFile?.data;
       
       if (fileData && Array.isArray(fileData)) {
         const values = fileData
+          .filter(row => row !== null && typeof row === 'object')
           .map(row => String(row[state.dropRowsColumn!] || "").trim())
           .filter(Boolean);
           
@@ -72,7 +73,7 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
       setUniqueValues([]);
       setSelectedValues([]);
     }
-  }, [state.dropRowsFile, state.dropRowsColumn, files]);
+  }, [state.dropRowsFile, state.dropRowsColumn, safeFiles]);
   
   const filteredValues = useMemo(() => {
     if (!searchValue.trim()) return uniqueValues;
@@ -114,14 +115,14 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
     }
 
     try {
-      const safeFiles = Array.isArray(files) ? files : [];
-      const fileToModify = safeFiles.find(file => file.id === state.dropRowsFile);
-      if (!fileToModify || !fileToModify.data) {
+      const fileToModify = safeFiles.find(file => file && file.id === state.dropRowsFile);
+      if (!fileToModify || !Array.isArray(fileToModify.data)) {
         toast.error("File data not found");
         return;
       }
 
       const filteredData = fileToModify.data.filter(row => {
+        if (!row || typeof row !== 'object') return false;
         const columnValue = String(row[state.dropRowsColumn!] || "").trim();
         const valueIsSelected = selectedValues.includes(columnValue);
         
@@ -132,7 +133,7 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
       const newSize = new Blob([newContent]).size;
 
       const updatedFiles = [...safeFiles];
-      const fileIndex = updatedFiles.findIndex(f => f.id === state.dropRowsFile);
+      const fileIndex = updatedFiles.findIndex(f => f && f.id === state.dropRowsFile);
       
       if (fileIndex !== -1) {
         updatedFiles[fileIndex] = {

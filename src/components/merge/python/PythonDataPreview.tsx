@@ -1,17 +1,18 @@
 
 import React from "react";
 import DataTable from "@/components/DataTable";
+import { ensureArray } from "@/utils/type-correction";
 
 interface PythonDataPreviewProps {
   outputData: any[];
 }
 
 const PythonDataPreview: React.FC<PythonDataPreviewProps> = ({ outputData }) => {
-  // Add multiple safeguards to ensure we always have an array
-  const safeOutputData = Array.isArray(outputData) ? outputData : [];
+  // Multiple safeguards to ensure we always have a valid array
+  const safeOutputData = ensureArray(outputData);
   
   // Get columns count safely
-  const columnsCount = safeOutputData.length > 0 
+  const columnsCount = safeOutputData.length > 0 && safeOutputData[0] !== null 
     ? Object.keys(safeOutputData[0] || {}).length 
     : 0;
   

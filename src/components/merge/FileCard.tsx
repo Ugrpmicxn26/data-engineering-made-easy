@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -7,6 +6,7 @@ import { Key, PlusCircle, MinusCircle, Search } from "lucide-react";
 import { FileData } from "@/utils/fileUtils";
 import { SelectWithSearch } from "@/components/ui/select-with-search";
 import { Input } from "@/components/ui/input";
+import { ensureArray } from "@/utils/type-correction";
 
 interface FileCardProps {
   file: FileData;
@@ -27,35 +27,42 @@ const FileCard: React.FC<FileCardProps> = ({
   onKeyColumnChange,
   onToggleColumn,
 }) => {
-  // Ensure file and columns are valid
+  // Ensure file and columns are valid with null/undefined checks
   const safeFile = file || { columns: [], id: '', name: '', data: [] };
-  const safeColumns = Array.isArray(safeFile.columns) ? safeFile.columns : [];
-  const safeIncludeColumns = Array.isArray(includeColumns) ? includeColumns : [];
-  const safeKeyColumns = Array.isArray(keyColumns) ? keyColumns : [];
+  const safeColumns = ensureArray<string>(safeFile.columns);
+  const safeIncludeColumns = ensureArray<string>(includeColumns);
+  const safeKeyColumns = ensureArray<string>(keyColumns);
   
-  // Convert columns to options format for SelectWithSearch
-  const columnOptions = React.useMemo(() => safeColumns.map(column => ({
-    value: column,
-    label: column
-  })), [safeColumns]);
+  // Convert columns to options format for SelectWithSearch with safety
+  const columnOptions = React.useMemo(() => 
+    safeColumns
+      .filter(column => column !== null && column !== undefined)
+      .map(column => ({
+        value: String(column),
+        label: String(column)
+      })
+    ), 
+    [safeColumns]
+  );
 
   // State for column search
   const [columnSearchTerm, setColumnSearchTerm] = React.useState("");
   
   // Filter columns based on search term
-  const filteredColumns = React.useMemo(() => 
-    columnSearchTerm 
-      ? safeColumns.filter(col => col.toLowerCase().includes(columnSearchTerm.toLowerCase()))
-      : safeColumns,
-    [safeColumns, columnSearchTerm]
-  );
+  const filteredColumns = React.useMemo(() => {
+    if (!columnSearchTerm) return safeColumns;
+    return safeColumns.filter(col => {
+      if (col === null || col === undefined) return false;
+      return String(col).toLowerCase().includes(columnSearchTerm.toLowerCase());
+    });
+  }, [safeColumns, columnSearchTerm]);
 
   return (
     <div className="p-4 bg-card rounded-lg border">
       <div className="mb-3">
         <h3 className="font-medium text-sm">{safeFile.name}</h3>
         <p className="text-xs text-muted-foreground">
-          {safeColumns.length} columns • {safeFile.data?.length || 0} rows
+          {safeColumns.length} columns • {Array.isArray(safeFile.data) ? safeFile.data.length : 0} rows
         </p>
       </div>
       

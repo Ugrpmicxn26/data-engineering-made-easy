@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { SelectWithSearch } from "@/components/ui/select-with-search";
+import { ensureArray } from "@/utils/type-correction";
 
 const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcessing, onComplete }) => {
   const [state, setState] = React.useState<DropColumnsTabState>({
@@ -19,8 +20,8 @@ const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
   });
 
   // Ensure safe access to arrays
-  const safeFiles = Array.isArray(files) ? files : [];
-  const safeSelectedFiles = Array.isArray(selectedFiles) ? selectedFiles : [];
+  const safeFiles = ensureArray(files);
+  const safeSelectedFiles = ensureArray(selectedFiles);
 
   const handleToggleExcludeColumn = (column: string) => {
     setState(prev => ({
@@ -38,13 +39,13 @@ const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
     }
 
     try {
-      const fileToModify = safeFiles.find(file => file.id === state.dropColumnsFile);
-      if (!fileToModify || !fileToModify.data) {
+      const fileToModify = safeFiles.find(file => file && file.id === state.dropColumnsFile);
+      if (!fileToModify || !Array.isArray(fileToModify.data)) {
         toast.error("File data not found");
         return;
       }
 
-      const allColumns = Array.isArray(fileToModify.columns) ? fileToModify.columns : [];
+      const allColumns = ensureArray<string>(fileToModify.columns);
       
       let columnsToExclude: string[];
       
@@ -54,7 +55,7 @@ const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
         columnsToExclude = allColumns.filter(col => !state.columnsToExclude.includes(col));
       }
 
-      const modifiedData = fileToModify.data.map(row => {
+      const modifiedData = fileToModify.data.filter(row => row !== null).map(row => {
         const newRow = { ...row };
         columnsToExclude.forEach(column => {
           delete newRow[column];
@@ -68,7 +69,7 @@ const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
       const newSize = new Blob([newContent]).size;
 
       const updatedFiles = [...safeFiles];
-      const fileIndex = updatedFiles.findIndex(f => f.id === state.dropColumnsFile);
+      const fileIndex = updatedFiles.findIndex(f => f && f.id === state.dropColumnsFile);
       
       if (fileIndex !== -1) {
         updatedFiles[fileIndex] = {
@@ -99,18 +100,21 @@ const DropColumnsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProc
 
   const selectedCount = state.columnsToExclude.length;
   
-  const selectedFile = safeSelectedFiles.find(f => f.id === state.dropColumnsFile);
-  const totalColumns = selectedFile?.columns?.length || 0;
+  const selectedFile = safeSelectedFiles.find(f => f && f.id === state.dropColumnsFile);
+  const safeSelectedFileColumns = ensureArray(selectedFile?.columns);
+  const totalColumns = safeSelectedFileColumns.length || 0;
   
   const remainingCount = state.mode === "drop" 
     ? totalColumns - selectedCount 
     : selectedCount;
 
   // Create file options safely
-  const fileOptions = safeSelectedFiles.map(file => ({
-    value: file.id,
-    label: file.name
-  }));
+  const fileOptions = safeSelectedFiles
+    .filter(file => file && typeof file === 'object')
+    .map(file => ({
+      value: file.id,
+      label: file.name
+    }));
 
   return (
     <div className="space-y-4">

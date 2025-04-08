@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { ensureArray } from "@/utils/type-correction";
 
 export interface SelectWithSearchOption {
   value: string;
@@ -29,7 +30,7 @@ interface SelectWithSearchProps {
 export function SelectWithSearch({
   value,
   onValueChange,
-  options = [], // Provide a default empty array to prevent undefined errors
+  options = [], // Default empty array
   placeholder = "Search columns...",
   emptyMessage = "No columns found.",
   className,
@@ -37,12 +38,14 @@ export function SelectWithSearch({
 }: SelectWithSearchProps) {
   const [open, setOpen] = React.useState(false);
   
-  // Ensure we have a valid options array
-  const safeOptions = Array.isArray(options) ? options : [];
+  // Ensure we have a valid options array with multiple safety checks
+  const safeOptions = ensureArray<SelectWithSearchOption>(options).filter(
+    option => option && typeof option === 'object' && 'value' in option && 'label' in option
+  );
   
-  // Find the selected option safely with null checks throughout
+  // Find the selected option safely
   const selectedOption = React.useMemo(() => 
-    safeOptions.find(option => option?.value === value), 
+    safeOptions.find(option => option && option.value === value), 
     [safeOptions, value]
   );
 
