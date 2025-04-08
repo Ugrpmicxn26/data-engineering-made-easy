@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,8 +28,7 @@ import {
   Filter, 
   ArrowRightLeft,
   X,
-  Plus,
-  Search
+  Plus
 } from "lucide-react";
 import { ColumnInfo } from "@/utils/fileUtils";
 import { SelectWithSearch } from "@/components/ui/select-with-search";
@@ -141,29 +141,6 @@ const TableControls: React.FC<TableControlsProps> = ({
             </p>
           </div>
           <div className="p-2 max-h-[300px] overflow-auto">
-            <div className="p-2 mb-2">
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Search columns..." 
-                  className="pl-8"
-                  onChange={(e) => {
-                    const searchTerm = e.target.value.toLowerCase();
-                    const columnsElements = document.querySelectorAll('[id^="column-"]');
-                    columnsElements.forEach((el) => {
-                      const parent = el.parentElement;
-                      if (parent) {
-                        const label = parent.querySelector('label');
-                        if (label && label.textContent) {
-                          const matches = label.textContent.toLowerCase().includes(searchTerm);
-                          parent.style.display = matches ? 'flex' : 'none';
-                        }
-                      }
-                    });
-                  }}
-                />
-              </div>
-            </div>
             {columns.map((column) => (
               <div key={column} className="flex items-center space-x-2 p-2">
                 <Checkbox 

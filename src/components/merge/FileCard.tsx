@@ -3,10 +3,9 @@ import React from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Key, PlusCircle, MinusCircle, Search } from "lucide-react";
+import { Key, PlusCircle, MinusCircle } from "lucide-react";
 import { FileData } from "@/utils/fileUtils";
 import { SelectWithSearch } from "@/components/ui/select-with-search";
-import { Input } from "@/components/ui/input";
 import { ensureArray } from "@/utils/type-correction";
 
 interface FileCardProps {
@@ -45,18 +44,6 @@ const FileCard: React.FC<FileCardProps> = ({
     ), 
     [safeColumns]
   );
-
-  // State for column search
-  const [columnSearchTerm, setColumnSearchTerm] = React.useState("");
-  
-  // Filter columns based on search term
-  const filteredColumns = React.useMemo(() => {
-    if (!columnSearchTerm) return safeColumns;
-    return safeColumns.filter(col => {
-      if (col === null || col === undefined) return false;
-      return String(col).toLowerCase().includes(columnSearchTerm.toLowerCase());
-    });
-  }, [safeColumns, columnSearchTerm]);
 
   return (
     <div className="p-4 bg-card rounded-lg border">
@@ -112,17 +99,8 @@ const FileCard: React.FC<FileCardProps> = ({
           </TabsList>
           
           <TabsContent value="include" className="mt-3">
-            <div className="relative mb-3">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Search columns..." 
-                className="pl-8"
-                value={columnSearchTerm}
-                onChange={(e) => setColumnSearchTerm(e.target.value)}
-              />
-            </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-              {filteredColumns.map(column => (
+              {safeColumns.map(column => (
                 <div key={column} className="flex items-center space-x-2">
                   <Checkbox
                     id={`${safeFile.id}-${column}`}

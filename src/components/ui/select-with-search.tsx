@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { ensureArray } from "@/utils/type-correction";
-import { superSafeToArray, isSafelyIterable, makeSafelyIterable } from "@/utils/iterableUtils";
+import { superSafeToArray, isSafelyIterable } from "@/utils/iterableUtils";
 
 export interface SelectWithSearchOption {
   value: string;

@@ -2,7 +2,7 @@
 import React from "react";
 import DataTable from "@/components/DataTable";
 import { ensureArray } from "@/utils/type-correction";
-import { superSafeToArray, isSafelyIterable, makeSafelyIterable } from "@/utils/iterableUtils";
+import { superSafeToArray, isSafelyIterable } from "@/utils/iterableUtils";
 
 interface PythonDataPreviewProps {
   outputData: any[];

@@ -25,7 +25,6 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
   
   const [uniqueValues, setUniqueValues] = useState<string[]>([]);
   const [selectedValues, setSelectedValues] = useState<string[]>([]);
-  const [searchValue, setSearchValue] = useState("");
   const [keepSelected, setKeepSelected] = useState(false);
   
   const safeFiles = ensureArray<FileData>(files || []);
@@ -77,13 +76,6 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
     }
   }, [state.dropRowsFile, state.dropRowsColumn, safeFiles]);
   
-  const filteredValues = useMemo(() => {
-    if (!searchValue.trim()) return uniqueValues;
-    return uniqueValues.filter(value => 
-      value.toLowerCase().includes(searchValue.toLowerCase())
-    );
-  }, [uniqueValues, searchValue]);
-  
   const handleToggleValue = (value: string) => {
     setSelectedValues(prev => 
       prev.includes(value) 
@@ -92,22 +84,12 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
     );
   };
   
-  const selectAllFiltered = () => {
-    setSelectedValues(prev => {
-      const newSelection = [...prev];
-      filteredValues.forEach(value => {
-        if (!newSelection.includes(value)) {
-          newSelection.push(value);
-        }
-      });
-      return newSelection;
-    });
+  const selectAllValues = () => {
+    setSelectedValues(uniqueValues);
   };
   
-  const clearAllFiltered = () => {
-    setSelectedValues(prev => 
-      prev.filter(value => !filteredValues.includes(value))
-    );
+  const clearAllValues = () => {
+    setSelectedValues([]);
   };
 
   const handleFilterRows = () => {
@@ -218,7 +200,7 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        onClick={selectAllFiltered}
+                        onClick={selectAllValues}
                         className="h-7 text-xs"
                       >
                         <Check className="h-3 w-3 mr-1" />
@@ -227,23 +209,13 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        onClick={clearAllFiltered}
+                        onClick={clearAllValues}
                         className="h-7 text-xs"
                       >
                         <X className="h-3 w-3 mr-1" />
                         Clear All
                       </Button>
                     </div>
-                  </div>
-                  
-                  <div className="relative mb-2">
-                    <Input
-                      placeholder="Search values..."
-                      value={searchValue}
-                      onChange={(e) => setSearchValue(e.target.value)}
-                      className="pl-8"
-                    />
-                    <ListFilter className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   </div>
                   
                   {selectedValues.length > 0 && (
@@ -270,9 +242,9 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
                   )}
                   
                   <ScrollArea className="h-[200px] border rounded-md p-2">
-                    {filteredValues.length > 0 ? (
+                    {uniqueValues.length > 0 ? (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {filteredValues.map(value => (
+                        {uniqueValues.map(value => (
                           <div key={value} className="flex items-center space-x-2">
                             <Checkbox
                               id={`value-${value}`}
