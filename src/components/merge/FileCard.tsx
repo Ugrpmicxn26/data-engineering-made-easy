@@ -27,11 +27,15 @@ const FileCard: React.FC<FileCardProps> = ({
   onKeyColumnChange,
   onToggleColumn,
 }) => {
+  // Ensure file and columns are valid
+  const safeFile = file || { columns: [], id: '', name: '', data: [] };
+  const safeColumns = Array.isArray(safeFile.columns) ? safeFile.columns : [];
+  
   // Convert columns to options format for SelectWithSearch
-  const columnOptions = React.useMemo(() => file.columns.map(column => ({
+  const columnOptions = React.useMemo(() => safeColumns.map(column => ({
     value: column,
     label: column
-  })), [file.columns]);
+  })), [safeColumns]);
 
   // State for column search
   const [columnSearchTerm, setColumnSearchTerm] = React.useState("");
@@ -39,17 +43,17 @@ const FileCard: React.FC<FileCardProps> = ({
   // Filter columns based on search term
   const filteredColumns = React.useMemo(() => 
     columnSearchTerm 
-      ? file.columns.filter(col => col.toLowerCase().includes(columnSearchTerm.toLowerCase()))
-      : file.columns,
-    [file.columns, columnSearchTerm]
+      ? safeColumns.filter(col => col.toLowerCase().includes(columnSearchTerm.toLowerCase()))
+      : safeColumns,
+    [safeColumns, columnSearchTerm]
   );
 
   return (
     <div className="p-4 bg-card rounded-lg border">
       <div className="mb-3">
-        <h3 className="font-medium text-sm">{file.name}</h3>
+        <h3 className="font-medium text-sm">{safeFile.name}</h3>
         <p className="text-xs text-muted-foreground">
-          {file.columns.length} columns • {file.data?.length || 0} rows
+          {safeColumns.length} columns • {safeFile.data?.length || 0} rows
         </p>
       </div>
       
@@ -83,7 +87,7 @@ const FileCard: React.FC<FileCardProps> = ({
           variant="outline"
           size="sm"
           onClick={onAddKeyColumn}
-          disabled={keyColumns.length === file.columns.length}
+          disabled={keyColumns.length === safeColumns.length}
           className="mt-2"
         >
           <PlusCircle className="mr-2 h-3.5 w-3.5" />
@@ -111,12 +115,12 @@ const FileCard: React.FC<FileCardProps> = ({
               {filteredColumns.map(column => (
                 <div key={column} className="flex items-center space-x-2">
                   <Checkbox
-                    id={`${file.id}-${column}`}
+                    id={`${safeFile.id}-${column}`}
                     checked={includeColumns.includes(column)}
                     onCheckedChange={() => onToggleColumn(column)}
                   />
                   <label
-                    htmlFor={`${file.id}-${column}`}
+                    htmlFor={`${safeFile.id}-${column}`}
                     className="text-sm truncate cursor-pointer"
                   >
                     {column}

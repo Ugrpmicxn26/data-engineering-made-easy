@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from "react";
 import { RowsIcon, ListFilter, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,32 +25,35 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
   const [searchValue, setSearchValue] = useState("");
   const [keepSelected, setKeepSelected] = useState(false);
   
+  const safeSelectedFiles = Array.isArray(selectedFiles) ? selectedFiles : [];
+  
   const fileOptions = useMemo(() => 
-    selectedFiles.map(file => ({
+    safeSelectedFiles.map(file => ({
       value: file.id,
       label: file.name
     })), 
-    [selectedFiles]
+    [safeSelectedFiles]
   );
 
   const columnOptions = useMemo(() => {
     if (!state.dropRowsFile) return [];
     
-    const selectedFile = selectedFiles.find(f => f.id === state.dropRowsFile);
+    const selectedFile = safeSelectedFiles.find(f => f.id === state.dropRowsFile);
     if (!selectedFile) return [];
     
     return selectedFile.columns.map(column => ({
       value: column,
       label: column
     }));
-  }, [state.dropRowsFile, selectedFiles]);
+  }, [state.dropRowsFile, safeSelectedFiles]);
 
   useEffect(() => {
     if (state.dropRowsFile && state.dropRowsColumn) {
-      const selectedFile = files.find(file => file.id === state.dropRowsFile);
+      const safeFiles = Array.isArray(files) ? files : [];
+      const selectedFile = safeFiles.find(file => file.id === state.dropRowsFile);
       const fileData = selectedFile?.data;
       
-      if (fileData) {
+      if (fileData && Array.isArray(fileData)) {
         const values = fileData
           .map(row => String(row[state.dropRowsColumn!] || "").trim())
           .filter(Boolean);
@@ -108,7 +110,8 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
     }
 
     try {
-      const fileToModify = files.find(file => file.id === state.dropRowsFile);
+      const safeFiles = Array.isArray(files) ? files : [];
+      const fileToModify = safeFiles.find(file => file.id === state.dropRowsFile);
       if (!fileToModify || !fileToModify.data) {
         toast.error("File data not found");
         return;
@@ -124,7 +127,7 @@ const DropRowsTab: React.FC<ActionTabProps> = ({ files, selectedFiles, isProcess
       const newContent = generateCSV(filteredData);
       const newSize = new Blob([newContent]).size;
 
-      const updatedFiles = [...files];
+      const updatedFiles = [...safeFiles];
       const fileIndex = updatedFiles.findIndex(f => f.id === state.dropRowsFile);
       
       if (fileIndex !== -1) {

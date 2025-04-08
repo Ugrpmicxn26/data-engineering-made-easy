@@ -29,7 +29,7 @@ interface SelectWithSearchProps {
 export function SelectWithSearch({
   value,
   onValueChange,
-  options,
+  options = [], // Provide a default empty array to prevent undefined errors
   placeholder = "Search columns...",
   emptyMessage = "No columns found.",
   className,
@@ -37,10 +37,11 @@ export function SelectWithSearch({
 }: SelectWithSearchProps) {
   const [open, setOpen] = React.useState(false);
   
-  // Ensure we're safely finding the selected option
+  // Ensure we're safely finding the selected option and handle undefined options
+  const safeOptions = Array.isArray(options) ? options : [];
   const selectedOption = React.useMemo(() => 
-    options.find(option => option.value === value), 
-    [options, value]
+    safeOptions.find(option => option.value === value), 
+    [safeOptions, value]
   );
 
   return (
@@ -61,7 +62,7 @@ export function SelectWithSearch({
           <CommandInput placeholder={placeholder} className="h-9" />
           <CommandEmpty>{emptyMessage}</CommandEmpty>
           <CommandGroup className="max-h-60 overflow-auto">
-            {options.map((option) => (
+            {safeOptions.map((option) => (
               <CommandItem
                 key={option.value}
                 value={option.value}
