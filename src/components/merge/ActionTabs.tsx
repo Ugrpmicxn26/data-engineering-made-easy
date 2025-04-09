@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { 
@@ -13,7 +12,8 @@ import {
   ChevronRight,
   GroupIcon,
   FileCode,
-  SplitSquareHorizontal
+  SplitSquareHorizontal,
+  BarChart2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -36,7 +36,8 @@ export const ACTION_TYPES = {
   REGEX_TRANSFORM: "regexTransform",
   GROUP_BY: "groupBy",
   PYTHON: "python",
-  COLUMN_FORMATTER: "columnFormatter"
+  COLUMN_FORMATTER: "columnFormatter",
+  DATA_VISUALIZATION: "dataVisualization"
 };
 
 const ActionTabs: React.FC<ActionTabsProps> = ({ 
@@ -105,6 +106,12 @@ const ActionTabs: React.FC<ActionTabsProps> = ({
       label: "Split & Format",
       icon: SplitSquareHorizontal,
       color: "teal"
+    },
+    {
+      type: ACTION_TYPES.DATA_VISUALIZATION,
+      label: "Data Visualization",
+      icon: BarChart2,
+      color: "rose"
     }
   ];
   
@@ -121,7 +128,8 @@ const ActionTabs: React.FC<ActionTabsProps> = ({
       indigo: "text-indigo-500",
       orange: "text-orange-500",
       emerald: "text-emerald-500",
-      teal: "text-teal-500"
+      teal: "text-teal-500",
+      rose: "text-rose-500"
     };
     
     return colorMap[color] || "text-primary";
@@ -138,7 +146,8 @@ const ActionTabs: React.FC<ActionTabsProps> = ({
       indigo: "bg-indigo-500",
       orange: "bg-orange-500",
       emerald: "bg-emerald-500",
-      teal: "bg-teal-500"
+      teal: "bg-teal-500",
+      rose: "bg-rose-500"
     };
     
     return colorMap[color] || "bg-primary";
