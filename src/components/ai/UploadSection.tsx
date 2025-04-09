@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { FileData } from "@/utils/fileUtils";
 import { Database, XCircle } from "lucide-react";
 import AIFileUploader from "@/components/ai/AIFileUploader";
+import ChartGenerator from "@/components/ai/ChartGenerator";
 
 interface UploadSectionProps {
   files: FileData[];
@@ -33,31 +34,35 @@ const UploadSection: React.FC<UploadSectionProps> = ({
         </Card>
         
         {files.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Available Files</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {files.map(file => (
-                  <div key={file.id} className="flex items-center justify-between p-2 border rounded-md">
-                    <div className="flex items-center gap-2">
-                      <Database className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="font-medium">{file.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {file.data.length} rows, {file.columns.length} columns
-                        </p>
+          <>
+            <Card>
+              <CardHeader>
+                <CardTitle>Available Files</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {files.map(file => (
+                    <div key={file.id} className="flex items-center justify-between p-2 border rounded-md">
+                      <div className="flex items-center gap-2">
+                        <Database className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">{file.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {file.data.length} rows, {file.columns.length} columns
+                          </p>
+                        </div>
                       </div>
+                      <Button variant="ghost" size="icon" onClick={() => onRemoveFile(file.id)}>
+                        <XCircle className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => onRemoveFile(file.id)}>
-                      <XCircle className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+            
+            <ChartGenerator files={files} />
+          </>
         )}
       </div>
     </div>
