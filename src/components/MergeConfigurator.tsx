@@ -15,6 +15,7 @@ import RegexTransformTab from "./merge/RegexTransformTab";
 import GroupByTab from "./merge/GroupByTab";
 import PythonTab from "./merge/PythonTab";
 import ColumnFormatterTab from "./merge/ColumnFormatterTab";
+import DataVisualizationTab from "./merge/DataVisualizationTab";
 import EmptyFilesMessage from "./merge/EmptyFilesMessage";
 
 interface MergeConfiguratorProps {
@@ -146,6 +147,15 @@ const MergeConfigurator: React.FC<MergeConfiguratorProps> = ({ files, onMergeCom
         
         {currentAction === ACTION_TYPES.COLUMN_FORMATTER && (
           <ColumnFormatterTab 
+            files={files} 
+            selectedFiles={selectedFiles} 
+            isProcessing={isProcessing} 
+            onComplete={handleComplete} 
+          />
+        )}
+
+        {currentAction === ACTION_TYPES.DATA_VISUALIZATION && (
+          <DataVisualizationTab 
             files={files} 
             selectedFiles={selectedFiles} 
             isProcessing={isProcessing} 
