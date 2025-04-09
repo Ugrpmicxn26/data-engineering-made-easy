@@ -606,3 +606,13 @@ ${JSON.stringify(fileData.data.slice(0, 3), null, 2)}
 
 For more specific insights, try asking about particular columns or relationships between them.`;
 };
+
+export const truncateText = (text: string, maxLength: number): string => {
+  if (!text) return '';
+  
+  // Convert string lengths to numbers before arithmetic operations
+  if (Number(text.length) > Number(maxLength)) {
+    return text.substring(0, maxLength) + '...';
+  }
+  return text;
+};
