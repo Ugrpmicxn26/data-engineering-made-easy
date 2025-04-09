@@ -1,4 +1,3 @@
-
 import { FileData } from "@/utils/fileUtils";
 
 export interface AIModel {
@@ -553,7 +552,7 @@ export const processLocalAI = async (prompt: string, fileData: FileData | null):
           
           // Create table header
           response += `| ${col1} \\ ${col2} | ${top5Val2.join(' | ')} |\n`;
-          // Fix line 417: Ensure both operands are properly converted to numbers
+          // Fix the arithmetic operation by ensuring both operands are properly converted to numbers
           response += `| ${'---'.repeat(Math.max(1, Math.ceil(Number(col1.length) / 3)))} | ${top5Val2.map(val2 => '---'.repeat(Math.max(1, Math.ceil(Number(val2.length) / 3)))).join(' | ')} |\n`;
           
           // Create table rows
