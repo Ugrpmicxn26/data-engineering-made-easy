@@ -1,8 +1,11 @@
+
 import * as React from "react"
 import * as SelectPrimitive from "@radix-ui/react-select"
-import { Check, ChevronDown, ChevronUp } from "lucide-react"
+import { Check, ChevronDown, ChevronUp, Search } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "./command"
+import { Popover, PopoverContent, PopoverTrigger } from "./popover"
 
 const Select = SelectPrimitive.Root
 
@@ -144,6 +147,92 @@ const SelectSeparator = React.forwardRef<
 ))
 SelectSeparator.displayName = SelectPrimitive.Separator.displayName
 
+// Create a new searchable select component
+interface SearchableSelectProps {
+  options: { label: string; value: string }[];
+  value: string;
+  onValueChange: (value: string) => void;
+  placeholder?: string;
+  searchPlaceholder?: string;
+  className?: string;
+  disabled?: boolean;
+}
+
+function SearchableSelect({
+  options,
+  value,
+  onValueChange,
+  placeholder = "Select an option",
+  searchPlaceholder = "Search...",
+  className,
+  disabled = false,
+}: SearchableSelectProps) {
+  const [open, setOpen] = React.useState(false)
+  const [searchQuery, setSearchQuery] = React.useState("")
+  
+  const filteredOptions = React.useMemo(() => {
+    if (!searchQuery) return options
+    return options.filter((option) => 
+      option.label.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+  }, [options, searchQuery])
+  
+  const selectedOption = React.useMemo(() => 
+    options.find((option) => option.value === value),
+    [options, value]
+  )
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          disabled={disabled}
+          className={cn("w-full justify-between", className)}
+        >
+          {selectedOption ? selectedOption.label : placeholder}
+          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-full p-0" align="start">
+        <Command>
+          <CommandInput 
+            placeholder={searchPlaceholder} 
+            value={searchQuery}
+            onValueChange={setSearchQuery}
+          />
+          {filteredOptions.length === 0 && (
+            <CommandEmpty>No results found.</CommandEmpty>
+          )}
+          <CommandGroup className="max-h-60 overflow-auto">
+            {filteredOptions.map((option) => (
+              <CommandItem
+                key={option.value}
+                value={option.value}
+                onSelect={(currentValue) => {
+                  onValueChange(currentValue)
+                  setOpen(false)
+                  setSearchQuery("")
+                }}
+              >
+                <Check
+                  className={cn(
+                    "mr-2 h-4 w-4",
+                    value === option.value ? "opacity-100" : "opacity-0"
+                  )}
+                />
+                {option.label}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 export {
   Select,
   SelectGroup,
@@ -155,4 +244,5 @@ export {
   SelectSeparator,
   SelectScrollUpButton,
   SelectScrollDownButton,
+  SearchableSelect,
 }

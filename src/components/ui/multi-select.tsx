@@ -29,6 +29,7 @@ interface MultiSelectProps {
   placeholder?: string;
   className?: string;
   badgeClassName?: string;
+  searchPlaceholder?: string;
 }
 
 export function MultiSelect({
@@ -38,8 +39,10 @@ export function MultiSelect({
   placeholder = "Select options",
   className,
   badgeClassName,
+  searchPlaceholder = "Search options...",
 }: MultiSelectProps) {
   const [open, setOpen] = React.useState(false);
+  const [searchValue, setSearchValue] = React.useState("");
 
   const handleUnselect = (value: string) => {
     onChange(selected.filter((item) => item !== value));
@@ -52,6 +55,16 @@ export function MultiSelect({
       onChange([...selected, value]);
     }
   };
+
+  // Filter options based on search input
+  const filteredOptions = React.useMemo(() => {
+    if (!searchValue) return options;
+    
+    return options.filter((option) => 
+      option.label.toLowerCase().includes(searchValue.toLowerCase()) ||
+      option.value.toLowerCase().includes(searchValue.toLowerCase())
+    );
+  }, [options, searchValue]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -110,10 +123,14 @@ export function MultiSelect({
       </PopoverTrigger>
       <PopoverContent className="w-full p-0">
         <Command className="w-full">
-          <CommandInput placeholder="Search options..." />
+          <CommandInput 
+            placeholder={searchPlaceholder}
+            value={searchValue}
+            onValueChange={setSearchValue}
+          />
           <CommandEmpty>No options found.</CommandEmpty>
           <CommandGroup className="max-h-64 overflow-auto">
-            {options.map((option) => (
+            {filteredOptions.map((option) => (
               <CommandItem
                 key={option.value}
                 onSelect={() => handleSelect(option.value)}

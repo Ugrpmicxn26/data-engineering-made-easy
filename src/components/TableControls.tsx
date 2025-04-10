@@ -13,6 +13,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SearchableSelect
 } from "@/components/ui/select";
 import { 
   Accordion,
@@ -31,6 +32,7 @@ import {
   Plus
 } from "lucide-react";
 import { ColumnInfo } from "@/utils/fileUtils";
+import { MultiSelect } from "./ui/multi-select";
 
 interface TableControlsProps {
   columns: string[];
@@ -125,6 +127,12 @@ const TableControls: React.FC<TableControlsProps> = ({
     onPivot(null);
   };
 
+  // Convert columns to options format for MultiSelect and SearchableSelect
+  const columnOptions = columns.map(col => ({
+    label: col,
+    value: col
+  }));
+
   return (
     <div className="flex flex-wrap gap-2 mb-4">
       {/* Column Selection */}
@@ -208,21 +216,13 @@ const TableControls: React.FC<TableControlsProps> = ({
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <Label className="text-xs">Column</Label>
-                          <Select
+                          <SearchableSelect
+                            options={columnOptions}
                             value={filter.column}
                             onValueChange={(value) => updateRowFilter(index, "column", value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select column" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {columns.map((col) => (
-                                <SelectItem key={col} value={col}>
-                                  {col}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            placeholder="Select column"
+                            searchPlaceholder="Search columns..."
+                          />
                         </div>
                         <div>
                           <Label className="text-xs">Mode</Label>
@@ -292,22 +292,13 @@ const TableControls: React.FC<TableControlsProps> = ({
           <div className="p-4 space-y-3">
             <div>
               <Label className="text-xs">Pivot Column (Categories)</Label>
-              <Select
+              <SearchableSelect
+                options={columnOptions}
                 value={pivotConfig?.pivotColumn || ""}
                 onValueChange={(value) => handlePivotChange("pivotColumn", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select pivot column" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">None</SelectItem>
-                  {columns.map((col) => (
-                    <SelectItem key={col} value={col}>
-                      {col}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="Select pivot column"
+                searchPlaceholder="Search columns..."
+              />
               <p className="text-xs text-muted-foreground mt-1">
                 Values from this column will become new columns
               </p>
@@ -315,22 +306,13 @@ const TableControls: React.FC<TableControlsProps> = ({
             
             <div>
               <Label className="text-xs">Value Column</Label>
-              <Select
+              <SearchableSelect
+                options={columnOptions}
                 value={pivotConfig?.valueColumn || ""}
                 onValueChange={(value) => handlePivotChange("valueColumn", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select value column" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">None</SelectItem>
-                  {columns.map((col) => (
-                    <SelectItem key={col} value={col}>
-                      {col}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="Select value column"
+                searchPlaceholder="Search columns..."
+              />
               <p className="text-xs text-muted-foreground mt-1">
                 Values from this column will populate the pivot table
               </p>

@@ -1,8 +1,11 @@
+
 import * as React from "react"
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
-import { Check, ChevronRight, Circle } from "lucide-react"
+import { Check, ChevronRight, Circle, Search } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "./command"
+import { Popover, PopoverContent, PopoverTrigger } from "./popover"
 
 const DropdownMenu = DropdownMenuPrimitive.Root
 
@@ -179,6 +182,87 @@ const DropdownMenuShortcut = ({
 }
 DropdownMenuShortcut.displayName = "DropdownMenuShortcut"
 
+// Create a new searchable dropdown component
+interface SearchableDropdownProps {
+  trigger: React.ReactNode;
+  options: { label: string; value: string }[];
+  value: string;
+  onSelect: (value: string) => void;
+  placeholder?: string;
+  searchPlaceholder?: string;
+  className?: string;
+  align?: "center" | "start" | "end";
+  side?: "top" | "right" | "bottom" | "left";
+}
+
+const SearchableDropdown = ({
+  trigger,
+  options,
+  value,
+  onSelect,
+  placeholder = "Select an option",
+  searchPlaceholder = "Search...",
+  className,
+  align = "center",
+  side = "bottom",
+}: SearchableDropdownProps) => {
+  const [open, setOpen] = React.useState(false)
+  const [searchQuery, setSearchQuery] = React.useState("")
+  
+  const filteredOptions = React.useMemo(() => {
+    if (!searchQuery) return options
+    return options.filter((option) => 
+      option.label.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+  }, [options, searchQuery])
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        {trigger}
+      </PopoverTrigger>
+      <PopoverContent 
+        className={cn("p-0", className)} 
+        align={align} 
+        side={side}
+        sideOffset={4}
+      >
+        <Command>
+          <CommandInput 
+            placeholder={searchPlaceholder} 
+            value={searchQuery}
+            onValueChange={setSearchQuery}
+          />
+          {filteredOptions.length === 0 && (
+            <CommandEmpty>No results found.</CommandEmpty>
+          )}
+          <CommandGroup className="max-h-60 overflow-auto">
+            {filteredOptions.map((option) => (
+              <CommandItem
+                key={option.value}
+                value={option.value}
+                onSelect={(currentValue) => {
+                  onSelect(currentValue)
+                  setOpen(false)
+                  setSearchQuery("")
+                }}
+              >
+                <Check
+                  className={cn(
+                    "mr-2 h-4 w-4",
+                    value === option.value ? "opacity-100" : "opacity-0"
+                  )}
+                />
+                {option.label}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 export {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -195,4 +279,5 @@ export {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuRadioGroup,
+  SearchableDropdown,
 }
