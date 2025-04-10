@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +32,7 @@ import {
 } from "lucide-react";
 import { ColumnInfo } from "@/utils/fileUtils";
 import { MultiSelect } from "./ui/multi-select";
+import { SearchableDropdown } from "./ui/searchable-dropdown";
 
 interface TableControlsProps {
   columns: string[];
@@ -63,7 +63,6 @@ const TableControls: React.FC<TableControlsProps> = ({
   const [rowFilters, setRowFilters] = useState<RowFilter[]>([]);
   const [pivotConfig, setPivotConfig] = useState<PivotConfig | null>(null);
   
-  // Column selection handler
   const handleColumnToggle = (column: string) => {
     const updatedColumns = selectedColumns.includes(column)
       ? selectedColumns.filter(col => col !== column)
@@ -73,7 +72,6 @@ const TableControls: React.FC<TableControlsProps> = ({
     onToggleColumns(updatedColumns);
   };
 
-  // Add new row filter
   const addRowFilter = () => {
     if (columns.length === 0) return;
     
@@ -86,7 +84,6 @@ const TableControls: React.FC<TableControlsProps> = ({
     setRowFilters([...rowFilters, newFilter]);
   };
 
-  // Update row filter
   const updateRowFilter = (index: number, field: keyof RowFilter, value: any) => {
     const updatedFilters = [...rowFilters];
     updatedFilters[index] = { ...updatedFilters[index], [field]: value };
@@ -94,14 +91,12 @@ const TableControls: React.FC<TableControlsProps> = ({
     onFilterRows(updatedFilters);
   };
 
-  // Remove row filter
   const removeRowFilter = (index: number) => {
     const updatedFilters = rowFilters.filter((_, i) => i !== index);
     setRowFilters(updatedFilters);
     onFilterRows(updatedFilters);
   };
 
-  // Handle pivot configuration
   const handlePivotChange = (field: keyof PivotConfig, value: string) => {
     if (!value) {
       setPivotConfig(null);
@@ -115,19 +110,16 @@ const TableControls: React.FC<TableControlsProps> = ({
     
     setPivotConfig(newConfig);
     
-    // Only apply pivot if both fields are set
     if (newConfig.pivotColumn && newConfig.valueColumn) {
       onPivot(newConfig);
     }
   };
 
-  // Reset pivot
   const resetPivot = () => {
     setPivotConfig(null);
     onPivot(null);
   };
 
-  // Convert columns to options format for MultiSelect and SearchableSelect
   const columnOptions = columns.map(col => ({
     label: col,
     value: col
@@ -135,7 +127,6 @@ const TableControls: React.FC<TableControlsProps> = ({
 
   return (
     <div className="flex flex-wrap gap-2 mb-4">
-      {/* Column Selection */}
       <Popover>
         <PopoverTrigger asChild>
           <Button variant="outline" size="sm" className="h-8 gap-1">
@@ -167,7 +158,6 @@ const TableControls: React.FC<TableControlsProps> = ({
         </PopoverContent>
       </Popover>
 
-      {/* Row Filtering */}
       <Popover>
         <PopoverTrigger asChild>
           <Button variant="outline" size="sm" className="h-8 gap-1">
@@ -269,7 +259,6 @@ const TableControls: React.FC<TableControlsProps> = ({
         </PopoverContent>
       </Popover>
 
-      {/* Pivot Controls */}
       <Popover>
         <PopoverTrigger asChild>
           <Button 
