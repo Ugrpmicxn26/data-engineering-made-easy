@@ -616,3 +616,31 @@ export const truncateText = (text: string, maxLength: number): string => {
   }
   return text;
 };
+
+export function generateCoordinatesForWordCloud(words: { text: string; value: number }[]) {
+  const result: { text: string; value: number; x: number; y: number }[] = [];
+  
+  const centerX = 500;
+  const centerY = 300;
+  const radius = 200;
+  
+  words.forEach((word, i) => {
+    // Convert the word.value to a number if it's not already
+    const value = typeof word.value === 'number' ? word.value : Number(word.value);
+    
+    // Calculate angle based on index
+    const angle = (i / words.length) * 2 * Math.PI;
+    
+    // Calculate position using polar coordinates
+    const x = centerX + radius * Math.cos(angle) * (value / 100);
+    const y = centerY + radius * Math.sin(angle) * (value / 100);
+    
+    result.push({
+      ...word,
+      x,
+      y
+    });
+  });
+  
+  return result;
+}
