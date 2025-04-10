@@ -60,6 +60,7 @@ import * as XLSX from 'xlsx';
 import { useTheme } from "@/components/ui/use-theme";
 import { generateChartColors } from "@/utils/colors";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { SearchableDropdown } from "@/components/ui/searchable-dropdown";
 
 interface DataVisualizationTabProps {
   files: FileData[];
@@ -118,8 +119,8 @@ const DataVisualizationTab: React.FC<DataVisualizationTabProps> = ({ files, sele
   const [isRadialBarBackgroundVisible, setIsRadialBarBackgroundVisible] = useState(true);
   const [radialBarStartAngle, setRadialBarStartAngle] = useState<number>(90);
   const [radialBarEndAngle, setRadialBarEndAngle] = useState<number>(-270);
-  const [radialBarInnerRadius, setRadialBarInnerRadius] = useState<number>("10%");
-  const [radialBarOuterRadius, setRadialBarOuterRadius] = useState<number>("80%");
+  const [radialBarInnerRadius, setRadialBarInnerRadius] = useState<string>("10%");
+  const [radialBarOuterRadius, setRadialBarOuterRadius] = useState<string>("80%");
   const [isRadialBarClockwise, setIsRadialBarClockwise] = useState(true);
   const [isRadialBarCornerRadius, setIsRadialBarCornerRadius] = useState(true);
   const [radialBarPaddingAngle, setRadialBarPaddingAngle] = useState<number>(2);
@@ -128,229 +129,312 @@ const DataVisualizationTab: React.FC<DataVisualizationTabProps> = ({ files, sele
     "inside" | "outside" | "insideStart" | "insideEnd" | "insideTop" | "insideBottom" | "insideLeft" | "insideRight" | undefined
   >("inside");
   const [radialBarLabelFormatter, setRadialBarLabelFormatter] = useState<string>("");
-  const [isRadialBarLegendVisible, setIsRadialBarLegendVisible] = useState(true);
-  const [radialBarLegendPosition, setRadialBarLegendPosition] = useState<
-    "top" | "bottom" | "left" | "right" | "inside" | undefined
-  >("bottom");
-  const [isRadialBarAnimationActive, setIsRadialBarAnimationActive] = useState(true);
-  const [radialBarAnimationDuration, setRadialBarAnimationDuration] = useState<number>(1500);
-  const [radialBarAnimationEasing, setRadialBarAnimationEasing] = useState<
-    "ease" | "ease-in" | "ease-out" | "ease-in-out" | "linear" | "step" | "step-before" | "step-after"
-  >("ease");
-  const [isRadialBarTooltipActive, setIsRadialBarTooltipActive] = useState(true);
-  const [radialBarTooltipFormatter, setRadialBarTooltipFormatter] = useState<string>("");
-  const [isRadialBarBrushEnabled, setIsRadialBarBrushEnabled] = useState(false);
-  const [radialBarBrushType, setRadialBarBrushType] = useState<"x" | "y" | "xy">("x");
-  const [isRadialBarZoomEnabled, setIsRadialBarZoomEnabled] = useState(false);
-  const [radialBarZoomType, setRadialBarZoomType] = useState<"x" | "y" | "xy">("x");
-  const [isRadialBarDotVisible, setIsRadialBarDotVisible] = useState(true);
-  const [radialBarDotType, setRadialBarDotType] = useState<"circle" | "square" | "triangle" | "star">("circle");
-  const [radialBarDotSize, setRadialBarDotSize] = useState<number>(5);
-  const [isRadialBarShapeCurved, setIsRadialBarShapeCurved] = useState(true);
-  const [radialBarCurveType, setRadialBarCurveType] = useState<
-    "natural" | "monotone" | "linear" | "step" | "stepBefore" | "stepAfter" | "cardinal" | "catmullRom"
-  >("natural");
-  const [isRadialBarAreaFilled, setIsRadialBarAreaFilled] = useState(true);
-  const [radialBarFillOpacity, setRadialBarFillOpacity] = useState<number>(0.5);
-  const [isRadialBarRadarPolarGrid, setIsRadialBarRadarPolarGrid] = useState(true);
-  const [isRadialBarRadarPolarAngleAxis, setIsRadialBarRadarPolarAngleAxis] = useState(true);
-  const [isRadialBarRadarPolarRadiusAxis, setIsRadialBarRadarPolarRadiusAxis] = useState(true);
-  const [isRadialBarRadarLegendVisible, setIsRadialBarRadarLegendVisible] = useState(true);
-  const [radialBarRadarLegendPosition, setRadialBarRadarLegendPosition] = useState<
-    "top" | "bottom" | "left" | "right" | "inside" | undefined
-  >("bottom");
-  const [isRadialBarRadarAnimationActive, setIsRadialBarRadarAnimationActive] = useState(true);
-  const [radialBarRadarAnimationDuration, setRadialBarRadarAnimationDuration] = useState<number>(1500);
-  const [radialBarRadarAnimationEasing, setRadialBarRadarAnimationEasing] = useState<
-    "ease" | "ease-in" | "ease-out" | "ease-in-out" | "linear" | "step" | "step-before" | "step-after"
-  >("ease");
-  const [isRadialBarRadarTooltipActive, setIsRadialBarRadarTooltipActive] = useState(true);
-  const [radialBarRadarTooltipFormatter, setRadialBarRadarTooltipFormatter] = useState<string>("");
-  const [isRadialBarRadarBrushEnabled, setIsRadialBarRadarBrushEnabled] = useState(false);
-  const [radialBarRadarBrushType, setRadialBarRadarBrushType] = useState<"x" | "y" | "xy">("x");
-  const [isRadialBarRadarZoomEnabled, setIsRadialBarRadarZoomEnabled] = useState(false);
-  const [radialBarRadarZoomType, setRadialBarRadarZoomType] = useState<"x" | "y" | "xy">("x");
-  const [isRadialBarRadarDotVisible, setIsRadialBarRadarDotVisible] = useState(true);
-  const [radialBarRadarDotType, setRadialBarRadarDotType] = useState<"circle" | "square" | "triangle" | "star">("circle");
-  const [radialBarRadarDotSize, setRadialBarRadarDotSize] = useState<number>(5);
-  const [isRadialBarRadarShapeCurved, setIsRadialBarRadarShapeCurved] = useState(true);
-  const [radialBarRadarCurveType, setRadialBarRadarCurveType] = useState<
-    "natural" | "monotone" | "linear" | "step" | "stepBefore" | "stepAfter" | "cardinal" | "catmullRom"
-  >("natural");
-  const [isRadialBarRadarAreaFilled, setIsRadialBarRadarAreaFilled] = useState(true);
-  const [radialBarRadarFillOpacity, setRadialBarRadarFillOpacity] = useState<number>(0.5);
-  const [isRadialBarRadarRadarPolarGrid, setIsRadialBarRadarRadarPolarGrid] = useState(true);
-  const [isRadialBarRadarRadarPolarAngleAxis, setIsRadialBarRadarRadarPolarAngleAxis] = useState(true);
-  const [isRadialBarRadarRadarPolarRadiusAxis, setIsRadialBarRadarRadarPolarRadiusAxis] = useState(true);
-  const [isRadialBarRadarRadarLegendVisible, setIsRadialBarRadarRadarLegendVisible] = useState(true);
-  const [radialBarRadarRadarLegendPosition, setRadialBarRadarRadarLegendPosition] = useState<
-    "top" | "bottom" | "left" | "right" | "inside" | undefined
-  >("bottom");
-  const [isRadialBarRadarRadarAnimationActive, setIsRadialBarRadarRadarAnimationActive] = useState(true);
-  const [radialBarRadarRadarAnimationDuration, setRadialBarRadarRadarAnimationDuration] = useState<number>(1500);
-  const [radialBarRadarRadarAnimationEasing, setRadialBarRadarRadarAnimationEasing] = useState<
-    "ease" | "ease-in" | "ease-out" | "ease-in-out" | "linear" | "step" | "step-before" | "step-after"
-  >("ease");
-  const [isRadialBarRadarRadarTooltipActive, setIsRadialBarRadarRadarTooltipActive] = useState(true);
-  const [radialBarRadarRadarTooltipFormatter, setRadialBarRadarRadarTooltipFormatter] = useState<string>("");
-  const [isRadialBarRadarRadarBrushEnabled, setIsRadialBarRadarRadarBrushEnabled] = useState(false);
-  const [radialBarRadarRadarBrushType, setRadialBarRadarRadarBrushType] = useState<"x" | "y" | "xy">("x");
-  const [isRadialBarRadarRadarZoomEnabled, setIsRadialBarRadarRadarZoomEnabled] = useState(false);
-  const [radialBarRadarRadarZoomType, setRadialBarRadarRadarZoomType] = useState<"x" | "y" | "xy">("x");
-  const [isRadialBarRadarRadarDotVisible, setIsRadialBarRadarRadarDotVisible] = useState(true);
-  const [radialBarRadarRadarDotType, setRadialBarRadarRadarDotType] = useState<"circle" | "square" | "triangle" | "star">("circle");
-  const [radialBarRadarRadarDotSize, setRadialBarRadarRadarDotSize] = useState<number>(5);
-  const [isRadialBarRadarRadarShapeCurved, setIsRadialBarRadarRadarShapeCurved] = useState(true);
-  const [radialBarRadarRadarCurveType, setRadialBarRadarRadarCurveType] = useState<
-    "natural" | "monotone" | "linear" | "step" | "stepBefore" | "stepAfter" | "cardinal" | "catmullRom"
-  >("natural");
-  const [isRadialBarRadarRadarAreaFilled, setIsRadialBarRadarRadarAreaFilled] = useState(true);
-  const [radialBarRadarRadarFillOpacity, setRadialBarRadarRadarFillOpacity] = useState<number>(0.5);
-  const [isRadialBarRadarRadarRadarPolarGrid, setIsRadialBarRadarRadarRadarPolarGrid] = useState(true);
-  const [isRadialBarRadarRadarRadarPolarAngleAxis, setIsRadialBarRadarRadarRadarPolarAngleAxis] = useState(true);
-  const [isRadialBarRadarRadarRadarPolarRadiusAxis, setIsRadialBarRadarRadarRadarPolarRadiusAxis] = useState(true);
-  const [isRadialBarRadarRadarRadarLegendVisible, setIsRadialBarRadarRadarRadarLegendVisible] = useState(true);
-  const [radialBarRadarRadarRadarLegendPosition, setRadialBarRadarRadarRadarLegendPosition] = useState<
-    "top" | "bottom" | "left" | "right" | "inside" | undefined
-  >("bottom");
-  const [isRadialBarRadarRadarRadarAnimationActive, setIsRadialBarRadarRadarRadarAnimationActive] = useState(true);
-  const [radialBarRadarRadarRadarAnimationDuration, setRadialBarRadarRadarRadarAnimationDuration] = useState<number>(1500);
-  const [radialBarRadarRadarRadarAnimationEasing, setRadialBarRadarRadarRadarAnimationEasing] = useState<
-    "ease" | "ease-in" | "ease-out" | "ease-in-out" | "linear" | "step" | "step-before" | "step-after"
-  >("ease");
-  const [isRadialBarRadarRadarRadarTooltipActive, setIsRadialBarRadarRadarRadarTooltipActive] = useState(true);
-  const [radialBarRadarRadarRadarTooltipFormatter, setRadialBarRadarRadarRadarTooltipFormatter] = useState<string>("");
-  const [isRadialBarRadarRadarRadarBrushEnabled, setIsRadialBarRadarRadarRadarBrushEnabled] = useState(false);
-  const [radialBarRadarRadarRadarBrushType, setRadialBarRadarRadarRadarBrushType] = useState<"x" | "y" | "xy">("x");
-  const [isRadialBarRadarRadarRadarZoomEnabled, setIsRadialBarRadarRadarRadarZoomEnabled] = useState(false);
-  const [radialBarRadarRadarRadarZoomType, setRadialBarRadarRadarRadarZoomType] = useState<"x" | "y" | "xy">("x");
-  const [isRadialBarRadarRadarRadarDotVisible, setIsRadialBarRadarRadarRadarDotVisible] = useState(true);
-  const [radialBarRadarRadarRadarDotType, setRadialBarRadarRadarRadarDotType] = useState<"circle" | "square" | "triangle" | "star">("circle");
-  const [radialBarRadarRadarRadarDotSize, setRadialBarRadarRadarRadarDotSize] = useState<number>(5);
-  const [isRadialBarRadarRadarRadarShapeCurved, setIsRadialBarRadarRadarRadarShapeCurved] = useState(true);
-  const [radialBarRadarRadarRadarCurveType, setRadialBarRadarRadarRadarCurveType] = useState<
-    "natural" | "monotone" | "linear" | "step" | "stepBefore" | "stepAfter" | "cardinal" | "catmullRom"
-  >("natural");
-  const [isRadialBarRadarRadarRadarAreaFilled, setIsRadialBarRadarRadarRadarAreaFilled] = useState(true);
-  const [radialBarRadarRadarRadarFillOpacity, setRadialBarRadarRadarRadarFillOpacity] = useState<number>(0.5);
-  const [isRadialBarRadarRadarRadarRadarPolarGrid, setIsRadialBarRadarRadarRadarRadarPolarGrid] = useState(true);
-  const [isRadialBarRadarRadarRadarRadarPolarAngleAxis, setIsRadialBarRadarRadarRadarRadarPolarAngleAxis] = useState(true);
-  const [isRadialBarRadarRadarRadarRadarPolarRadiusAxis, setIsRadialBarRadarRadarRadarRadarPolarRadiusAxis] = useState(true);
-  const [isRadialBarRadarRadarRadarRadarLegendVisible, setIsRadialBarRadarRadarRadarRadarLegendVisible] = useState(true);
-  const [radialBarRadarRadarRadarRadarLegendPosition, setRadialBarRadarRadarRadarRadarLegendPosition] = useState<
-    "top" | "bottom" | "left" | "right" | "inside" | undefined
-  >("bottom");
-  const [isRadialBarRadarRadarRadarRadarAnimationActive, setIsRadialBarRadarRadarRadarRadarAnimationActive] = useState(true);
-  const [radialBarRadarRadarRadarRadarAnimationDuration, setRadialBarRadarRadarRadarRadarAnimationDuration] = useState<number>(1500);
-  const [radialBarRadarRadarRadarRadarAnimationEasing, setRadialBarRadarRadarRadarRadarAnimationEasing] = useState<
-    "ease" | "ease-in" | "ease-out" | "ease-in-out" | "linear" | "step" | "step-before" | "step-after"
-  >("ease");
-  const [isRadialBarRadarRadarRadarRadarTooltipActive, setIsRadialBarRadarRadarRadarRadarTooltipActive] = useState(true);
-  const [radialBarRadarRadarRadarRadarTooltipFormatter, setRadialBarRadarRadarRadarRadarTooltipFormatter] = useState<string>("");
-  const [isRadialBarRadarRadarRadarRadarBrushEnabled, setIsRadialBarRadarRadarRadarRadarBrushEnabled] = useState(false);
-  const [radialBarRadarRadarRadarRadarBrushType, setRadialBarRadarRadarRadarRadarBrushType] = useState<"x" | "y" | "xy">("x");
-  const [isRadialBarRadarRadarRadarRadarZoomEnabled, setIsRadialBarRadarRadarRadarRadarZoomEnabled] = useState(false);
-  const [radialBarRadarRadarRadarRadarZoomType, setRadialBarRadarRadarRadarRadarZoomType] = useState<"x" | "y" | "xy">("x");
-  const [isRadialBarRadarRadarRadarRadarDotVisible, setIsRadialBarRadarRadarRadarRadarDotVisible] = useState(true);
-  const [radialBarRadarRadarRadarRadarDotType, setRadialBarRadarRadarRadarRadarDotType] = useState<"circle" | "square" | "triangle" | "star">("circle");
-  const [radialBarRadarRadarRadarRadarDotSize, setRadialBarRadarRadarRadarRadarDotSize] = useState<number>(5);
-  const [isRadialBarRadarRadarRadarRadarShapeCurved, setIsRadialBarRadarRadarRadarRadarShapeCurved] = useState(true);
-  const [radialBarRadarRadarRadarRadarCurveType, setRadialBarRadarRadarRadarRadarCurveType] = useState<
-    "natural" | "monotone" | "linear" | "step" | "stepBefore" | "stepAfter" | "cardinal" | "catmullRom"
-  >("natural");
-  const [isRadialBarRadarRadarRadarRadarAreaFilled, setIsRadialBarRadarRadarRadarRadarAreaFilled] = useState(true);
-  const [radialBarRadarRadarRadarRadarFillOpacity, setRadialBarRadarRadarRadarRadarFillOpacity] = useState<number>(0.5);
-  const [isRadialBarRadarRadarRadarRadarRadarPolarGrid, setIsRadialBarRadarRadarRadarRadarRadarPolarGrid] = useState(true);
-  const [isRadialBarRadarRadarRadarRadarRadarPolarAngleAxis, setIsRadialBarRadarRadarRadarRadarRadarPolarAngleAxis] = useState(true);
-  const [isRadialBarRadarRadarRadarRadarRadarPolarRadiusAxis, setIsRadialBarRadarRadarRadarRadarRadarPolarRadiusAxis] = useState(true);
-  const [isRadialBarRadarRadarRadarRadarRadarLegendVisible, setIsRadialBarRadarRadarRadarRadarRadarLegendVisible] = useState(true);
-  const [radialBarRadarRadarRadarRadarRadarLegendPosition, setRadialBarRadarRadarRadarRadarRadarLegendPosition] = useState<
-    "top" | "bottom" | "left" | "right" | "inside" | undefined
-  >("bottom");
-  const [isRadialBarRadarRadarRadarRadarRadarAnimationActive, setIsRadialBarRadarRadarRadarRadarRadarAnimationActive] = useState(true);
-  const [radialBarRadarRadarRadarRadarRadarAnimationDuration, setRadialBarRadarRadarRadarRadarRadarAnimationDuration] = useState<number>(1500);
-  const [radialBarRadarRadarRadarRadarRadarAnimationEasing, setRadialBarRadarRadarRadarRadarRadarAnimationEasing] = useState<
-    "ease" | "ease-in" | "ease-out" | "ease-in-out" | "linear" | "step" | "step-before" | "step-after"
-  >("ease");
-  const [isRadialBarRadarRadarRadarRadarRadarTooltipActive, setIsRadialBarRadarRadarRadarRadarRadarTooltipActive] = useState(true);
-  const [radialBarRadarRadarRadarRadarRadarTooltipFormatter, setRadialBarRadarRadarRadarRadarRadarTooltipFormatter] = useState<string>("");
-  const [isRadialBarRadarRadarRadarRadarRadarBrushEnabled, setIsRadialBarRadarRadarRadarRadarRadarBrushEnabled] = useState(false);
-  const [radialBarRadarRadarRadarRadarRadarBrushType, setRadialBarRadarRadarRadarRadarRadarBrushType] = useState<"x" | "y" | "xy">("x");
-  const [isRadialBarRadarRadarRadarRadarRadarZoomEnabled, setIsRadialBarRadarRadarRadarRadarRadarZoomEnabled] = useState(false);
-  const [radialBarRadarRadarRadarRadarRadarZoomType, setRadialBarRadarRadarRadarRadarRadarZoomType] = useState<"x" | "y" | "xy">("x");
-  const [isRadialBarRadarRadarRadarRadarRadarDotVisible, setIsRadialBarRadarRadarRadarRadarRadarDotVisible] = useState(true);
-  const [radialBarRadarRadarRadarRadarRadarDotType, setRadialBarRadarRadarRadarRadarRadarDotType] = useState<"circle" | "square" | "triangle" | "star">("circle");
-  const [radialBarRadarRadarRadarRadarRadarDotSize, setRadialBarRadarRadarRadarRadarRadarDotSize] = useState<number>(5);
-  const [isRadialBarRadarRadarRadarRadarRadarShapeCurved, setIsRadialBarRadarRadarRadarRadarRadarShapeCurved] = useState(true);
-  const [radialBarRadarRadarRadarRadarRadarCurveType, setRadialBarRadarRadarRadarRadarRadarCurveType] = useState<
-    "natural" | "monotone" | "linear" | "step" | "stepBefore" | "stepAfter" | "cardinal" | "catmullRom"
-  >("natural");
-  const [isRadialBarRadarRadarRadarRadarRadarAreaFilled, setIsRadialBarRadarRadarRadarRadarRadarAreaFilled] = useState(true);
-  const [radialBarRadarRadarRadarRadarRadarFillOpacity, setRadialBarRadarRadarRadarRadarRadarFillOpacity] = useState<number>(0.5);
-  const [isRadialBarRadarRadarRadarRadarRadarRadarPolarGrid, setIsRadialBarRadarRadarRadarRadarRadarRadarPolarGrid] = useState(true);
-  const [isRadialBarRadarRadarRadarRadarRadarRadarPolarAngleAxis, setIsRadialBarRadarRadarRadarRadarRadarRadarPolarAngleAxis] = useState(true);
-  const [isRadialBarRadarRadarRadarRadarRadarRadarPolarRadiusAxis, setIsRadialBarRadarRadarRadarRadarRadarRadarPolarRadiusAxis] = useState(true);
-  const [isRadialBarRadarRadarRadarRadarRadarRadarLegendVisible, setIsRadialBarRadarRadarRadarRadarRadarRadarLegendVisible] = useState(true);
-  const [radialBarRadarRadarRadarRadarRadarRadarLegendPosition, setRadialBarRadarRadarRadarRadarRadarRadarLegendPosition] = useState<
-    "top" | "bottom" | "left" | "right" | "inside" | undefined
-  >("bottom");
-  const [isRadialBarRadarRadarRadarRadarRadarRadarAnimationActive, setIsRadialBarRadarRadarRadarRadarRadarRadarAnimationActive] = useState(true);
-  const [radialBarRadarRadarRadarRadarRadarRadarAnimationDuration, setRadialBarRadarRadarRadarRadarRadarRadarAnimationDuration] = useState<number>(1500);
-  const [radialBarRadarRadarRadarRadarRadarRadarAnimationEasing, setRadialBarRadarRadarRadarRadarRadarRadarAnimationEasing] = useState<
-    "ease" | "ease-in" | "ease-out" | "ease-in-out" | "linear" | "step" | "step-before" | "step-after"
-  >("ease");
-  const [isRadialBarRadarRadarRadarRadarRadarRadarTooltipActive, setIsRadialBarRadarRadarRadarRadarRadarRadarTooltipActive] = useState(true);
-  const [radialBarRadarRadarRadarRadarRadarRadarTooltipFormatter, setRadialBarRadarRadarRadarRadarRadarRadarTooltipFormatter] = useState<string>("");
-  const [isRadialBarRadarRadarRadarRadarRadarRadarBrushEnabled, setIsRadialBarRadarRadarRadarRadarRadarRadarBrushEnabled] = useState(false);
-  const [radialBarRadarRadarRadarRadarRadarRadarBrushType, setRadialBarRadarRadarRadarRadarRadarRadarBrushType] = useState<"x" | "y" | "xy">("x");
-  const [isRadialBarRadarRadarRadarRadarRadarRadarZoomEnabled, setIsRadialBarRadarRadarRadarRadarRadarRadarZoomEnabled] = useState(false);
-  const [radialBarRadarRadarRadarRadarRadarRadarZoomType, setRadialBarRadarRadarRadarRadarRadarRadarZoomType] = useState<"x" | "y" | "xy">("x");
-  const [isRadialBarRadarRadarRadarRadarRadarRadarDotVisible, setIsRadialBarRadarRadarRadarRadarRadarRadarDotVisible] = useState(true);
-  const [radialBarRadarRadarRadarRadarRadarRadarDotType, setRadialBarRadarRadarRadarRadarRadarRadarDotType] = useState<"circle" | "square" | "triangle" | "star">("circle");
-  const [radialBarRadarRadarRadarRadarRadarRadarDotSize, setRadialBarRadarRadarRadarRadarRadarRadarDotSize] = useState<number>(5);
-  const [isRadialBarRadarRadarRadarRadarRadarRadarShapeCurved, setIsRadialBarRadarRadarRadarRadarRadarRadarShapeCurved] = useState(true);
-  const [radialBarRadarRadarRadarRadarRadarRadarCurveType, setRadialBarRadarRadarRadarRadarRadarRadarCurveType] = useState<
-    "natural" | "monotone" | "linear" | "step" | "stepBefore" | "stepAfter" | "cardinal" | "catmullRom"
-  >("natural");
-  const [isRadialBarRadarRadarRadarRadarRadarRadarAreaFilled, setIsRadialBarRadarRadarRadarRadarRadarRadarAreaFilled] = useState(true);
-  const [radialBarRadarRadarRadarRadarRadarRadarFillOpacity, setRadialBarRadarRadarRadarRadarRadarRadarFillOpacity] = useState<number>(0.5);
-  const [isRadialBarRadarRadarRadarRadarRadarRadarRadarPolarGrid, setIsRadialBarRadarRadarRadarRadarRadarRadarRadarPolarGrid] = useState(true);
-  const [isRadialBarRadarRadarRadarRadarRadarRadarRadarPolarAngleAxis, setIsRadialBarRadarRadarRadarRadarRadarRadarRadarPolarAngleAxis] = useState(true);
-  const [isRadialBarRadarRadarRadarRadarRadarRadarRadarPolarRadiusAxis, setIsRadialBarRadarRadarRadarRadarRadarRadarRadarPolarRadiusAxis] = useState(true);
-  const [isRadialBarRadarRadarRadarRadarRadarRadarRadarLegendVisible, setIsRadialBarRadarRadarRadarRadarRadarRadarRadarLegendVisible] = useState(true);
-  const [radialBarRadarRadarRadarRadarRadarRadarRadarLegendPosition, setRadialBarRadarRadarRadarRadarRadarRadarRadarLegendPosition] = useState<
-    "top" | "bottom" | "left" | "right" | "inside" | undefined
-  >("bottom");
-  const [isRadialBarRadarRadarRadarRadarRadarRadarRadarAnimationActive, setIsRadialBarRadarRadarRadarRadarRadarRadarRadarAnimationActive] = useState(true);
-  const [radialBarRadarRadarRadarRadarRadarRadarRadarAnimationDuration, setRadialBarRadarRadarRadarRadarRadarRadarRadarAnimationDuration] = useState<number>(1500);
-  const [radialBarRadarRadarRadarRadarRadarRadarRadarAnimationEasing, setRadialBarRadarRadarRadarRadarRadarRadarRadarAnimationEasing] = useState<
-    "ease" | "ease-in" | "ease-out" | "ease-in-out" | "linear" | "step" | "step-before" | "step-after"
-  >("ease");
-  const [isRadialBarRadarRadarRadarRadarRadarRadarRadarTooltipActive, setIsRadialBarRadarRadarRadarRadarRadarRadarRadarTooltipActive] = useState(true);
-  const [radialBarRadarRadarRadarRadarRadarRadarRadarTooltipFormatter, setRadialBarRadarRadarRadarRadarRadarRadarRadarTooltipFormatter] = useState<string>("");
-  const [isRadialBarRadarRadarRadarRadarRadarRadarRadarBrushEnabled, setIsRadialBarRadarRadarRadarRadarRadarRadarRadarBrushEnabled] = useState(false);
-  const [radialBarRadarRadarRadarRadarRadarRadarRadarBrushType, setRadialBarRadarRadarRadarRadarRadarRadarRadarBrushType] = useState<"x" | "y" | "xy">("x");
-  const [isRadialBarRadarRadarRadarRadarRadarRadarRadarZoomEnabled, setIsRadialBarRadarRadarRadarRadarRadarRadarRadarZoomEnabled] = useState(false);
-  const [radialBarRadarRadarRadarRadarRadarRadarRadarZoomType, setRadialBarRadarRadarRadarRadarRadarRadarRadarZoomType] = useState<"x" | "y" | "xy">("x");
-  const [isRadialBarRadarRadarRadarRadarRadarRadarRadarDotVisible, setIsRadialBarRadarRadarRadarRadarRadarRadarRadarDotVisible] = useState(true);
-  const [radialBarRadarRadarRadarRadarRadarRadarRadarDotType, setRadialBarRadarRadarRadarRadarRadarRadarRadarDotType] = useState<"circle" | "square" | "triangle" | "star">("circle");
-  const [radialBarRadarRadarRadarRadarRadarRadarRadarDotSize, setRadialBarRadarRadarRadarRadarRadarRadarRadarDotSize] = useState<number>(5);
-  const [isRadialBarRadarRadarRadarRadarRadarRadarRadarShapeCurved, setIsRadialBarRadarRadarRadarRadarRadarRadarRadarShapeCurved] = useState(true);
-  const [radialBarRadarRadarRadarRadarRadarRadarRadarCurveType, setRadialBarRadarRadarRadarRadarRadarRadarRadarCurveType] = useState<
-    "natural" | "monotone" | "linear" | "step" | "stepBefore" | "stepAfter" | "cardinal" | "catmullRom"
-  >("natural");
-  const [isRadialBarRadarRadarRadarRadarRadarRadarRadarAreaFilled, setIsRadialBarRadarRadarRadarRadarRadarRadarRadarAreaFilled] = useState(true);
-  const [radialBarRadarRadarRadarRadarRadarRadarRadarFillOpacity, setRadialBarRadarRadarRadarRadarRadarRadarRadarFillOpacity] = useState<number>(0.5);
-  const [isRadialBarRadarRadarRadarRadarRadarRadarRadarRadarPolarGrid, setIsRadialBarRadarRadarRadarRadarRadarRadarRadarRadarPolarGrid] = useState(true);
-  const [isRadialBarRadarRadarRadarRadarRadarRadarRadarRadarPolarAngleAxis, setIsRadialBarRadarRadarRadarRadarRadarRadarRadarRadarPolarAngleAxis] = useState(true);
-  const [isRadialBarRadarRadarRadarRadarRadarRadarRadarRadarPolarRadiusAxis, setIsRadialBarRadarRadarRadarRadarRadarRadarRadarRadarPolarRadiusAxis] = useState(true);
-  const [isRadialBarRadarRadarRadarRadarRadarRadarRadarRadarLegendVisible, setIsRadialBarRadarRadarRadarRadarRadarRadarRadarRadarLegendVisible] = useState(true);
-  const [radialBarRadarRadarRadarRadarRadarRadarRadarRadarLegendPosition, setRadialBarRadarRadarRadarRadarRadarRadarRadarRadarLegendPosition] = useState<
-    "top" | "bottom" | "left" | "right" | "inside" | undefined
-  >("bottom");
-  const [isRadialBarRadarRadarRadarRadarRadarRadarRadarRadarAnimationActive, setIsRadialBarRadarRadarRadarRadarRadarRadarRadarRadarAnimationActive] = useState(true);
-  const [radialBarRadarRadarRadarRadarRadarRadarRadarRadarAnimationDuration, setRadialBarRadarRadarRadarRadarRadarRadarRadarRadarAnimationDuration] = useState<number>(1500);
-  const [radialBarRadarRadarRadarRadarRadarRadarRadarRadarAnimationEasing, setRadialBarRadarRadarRadarRadarRadarRadarRadarRadarAnimationEasing] = useState<
-    "ease" | "ease-in" | "ease-out" | "ease-in-out" | "linear" | "step" | "step-before" | "step-after"
-  >("ease");
-  const [isRadialBarRadarRadarRadarRadarRadarRadarRadarRadarTooltipActive, setIsRadialBarRadarRadarRadarRadarRadarRadarRadarRadarTooltipActive] = useState(
+
+  const getChartOptions = useCallback(() => {
+    const baseOptions = {
+      animation: isAnimationActive,
+      animationDuration: animationDuration,
+      animationEasing: animationEasing,
+      tooltip: isTooltipActive,
+      tooltipFormatter: tooltipFormatter,
+      labels: isLabelsVisible,
+      labelPosition: labelPosition,
+      labelFormatter: labelFormatter,
+      legend: isLegendVisible,
+      grid: isGridVisible,
+      colors: colorPalette.length > 0 ? colorPalette : undefined
+    };
+
+    switch (chartType) {
+      case "bar":
+        return {
+          ...baseOptions,
+          stacked: isStacked,
+        };
+      case "line":
+        return {
+          ...baseOptions,
+          dots: isDotVisible,
+          dotType: dotType,
+          dotSize: dotSize,
+          curved: isShapeCurved,
+          curveType: curveType,
+        };
+      case "area":
+        return {
+          ...baseOptions,
+          dots: isDotVisible,
+          dotType: dotType,
+          dotSize: dotSize,
+          curved: isShapeCurved,
+          curveType: curveType,
+          filled: isAreaFilled,
+          fillOpacity: fillOpacity,
+          stacked: isStacked,
+        };
+      case "pie":
+        return {
+          ...baseOptions,
+          innerRadius: 0,
+          outerRadius: "80%",
+          paddingAngle: 0,
+        };
+      case "scatter":
+        return {
+          ...baseOptions,
+          dots: isDotVisible,
+          dotType: dotType,
+          dotSize: dotSize,
+        };
+      case "radar":
+        return {
+          ...baseOptions,
+          polarGrid: isRadarPolarGrid,
+          polarAngleAxis: isRadarPolarAngleAxis,
+          polarRadiusAxis: isRadarPolarRadiusAxis,
+        };
+      case "radialBar":
+        return {
+          ...baseOptions,
+          background: isRadialBarBackgroundVisible,
+          startAngle: radialBarStartAngle,
+          endAngle: radialBarEndAngle,
+          innerRadius: radialBarInnerRadius,
+          outerRadius: radialBarOuterRadius,
+          clockwise: isRadialBarClockwise,
+          cornerRadius: isRadialBarCornerRadius,
+          paddingAngle: radialBarPaddingAngle,
+          radialLabels: isRadialBarLabelsVisible,
+          radialLabelPosition: radialBarLabelPosition,
+          radialLabelFormatter: radialBarLabelFormatter,
+        };
+      default:
+        return baseOptions;
+    }
+  }, [
+    chartType,
+    isAnimationActive,
+    animationDuration,
+    animationEasing,
+    isTooltipActive,
+    tooltipFormatter,
+    isLabelsVisible,
+    labelPosition,
+    labelFormatter,
+    isLegendVisible,
+    isGridVisible,
+    colorPalette,
+    isStacked,
+    isDotVisible,
+    dotType,
+    dotSize,
+    isShapeCurved,
+    curveType,
+    isAreaFilled,
+    fillOpacity,
+    isRadarPolarGrid,
+    isRadarPolarAngleAxis,
+    isRadarPolarRadiusAxis,
+    isRadialBarBackgroundVisible,
+    radialBarStartAngle,
+    radialBarEndAngle,
+    radialBarInnerRadius,
+    radialBarOuterRadius,
+    isRadialBarClockwise,
+    isRadialBarCornerRadius,
+    radialBarPaddingAngle,
+    isRadialBarLabelsVisible,
+    radialBarLabelPosition,
+    radialBarLabelFormatter
+  ]);
+
+  const renderChart = () => {
+    return <div className="text-center p-12">Chart rendering placeholder</div>;
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Chart Configuration</CardTitle>
+            <CardDescription>
+              Select chart type and data options
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Chart Type</Label>
+              <ToggleGroup type="single" value={chartType} onValueChange={(value) => value && setChartType(value as ChartType)}>
+                <ToggleGroupItem value="bar" aria-label="Bar Chart">
+                  <BarChart2 className="h-4 w-4 mr-2" />
+                  Bar
+                </ToggleGroupItem>
+                <ToggleGroupItem value="line" aria-label="Line Chart">
+                  <LineChart className="h-4 w-4 mr-2" />
+                  Line
+                </ToggleGroupItem>
+                <ToggleGroupItem value="pie" aria-label="Pie Chart">
+                  <PieChart className="h-4 w-4 mr-2" />
+                  Pie
+                </ToggleGroupItem>
+                <ToggleGroupItem value="area" aria-label="Area Chart">
+                  <AreaChart className="h-4 w-4 mr-2" />
+                  Area
+                </ToggleGroupItem>
+                <ToggleGroupItem value="scatter" aria-label="Scatter Chart">
+                  <ScatterChart className="h-4 w-4 mr-2" />
+                  Scatter
+                </ToggleGroupItem>
+                <ToggleGroupItem value="radar" aria-label="Radar Chart">
+                  <Radar className="h-4 w-4 mr-2" />
+                  Radar
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+
+            <div className="space-y-2">
+              <Label>X-Axis Column</Label>
+              <SearchableDropdown
+                trigger={
+                  <Button variant="outline" className="w-full justify-between">
+                    {xAxisKey || "Select X-Axis Column"}
+                    <ChevronDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                }
+                options={availableKeys.map(key => ({ label: key, value: key }))}
+                value={xAxisKey || ""}
+                onSelect={setXAxisKey}
+                placeholder="Select X-Axis Column"
+                searchPlaceholder="Search columns..."
+                align="start"
+                className="w-full"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Y-Axis Columns</Label>
+              <MultiSelect
+                options={availableKeys.map(key => ({ label: key, value: key }))}
+                selected={yAxisKeys}
+                onChange={setYAxisKeys}
+                placeholder="Select Y-Axis Columns"
+                className="w-full"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Chart Title</Label>
+              <Input 
+                placeholder="Enter chart title" 
+                value={customTitle}
+                onChange={(e) => setCustomTitle(e.target.value)}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Visualization Options</CardTitle>
+            <CardDescription>
+              Customize appearance and behavior
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="legend-toggle">Show Legend</Label>
+              <Switch 
+                id="legend-toggle"
+                checked={isLegendVisible}
+                onCheckedChange={setIsLegendVisible}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor="grid-toggle">Show Grid</Label>
+              <Switch 
+                id="grid-toggle"
+                checked={isGridVisible}
+                onCheckedChange={setIsGridVisible}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor="animation-toggle">Enable Animation</Label>
+              <Switch 
+                id="animation-toggle"
+                checked={isAnimationActive}
+                onCheckedChange={setIsAnimationActive}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor="labels-toggle">Show Data Labels</Label>
+              <Switch 
+                id="labels-toggle"
+                checked={isLabelsVisible}
+                onCheckedChange={setIsLabelsVisible}
+              />
+            </div>
+
+            {chartType !== "pie" && chartType !== "radialBar" && (
+              <div className="flex items-center justify-between">
+                <Label htmlFor="stacked-toggle">Stacked</Label>
+                <Switch 
+                  id="stacked-toggle"
+                  checked={isStacked}
+                  onCheckedChange={setIsStacked}
+                  disabled={!["bar", "area"].includes(chartType)}
+                />
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>Animation Duration (ms)</Label>
+              <Slider
+                value={[animationDuration]}
+                min={0}
+                max={3000}
+                step={100}
+                onValueChange={(value) => setAnimationDuration(value[0])}
+                disabled={!isAnimationActive}
+              />
+              <div className="text-xs text-muted-foreground text-right">
+                {animationDuration}ms
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            {customTitle || "Chart Preview"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {renderChart()}
+        </CardContent>
+        <CardFooter className="flex justify-between">
+          <Button variant="outline">
+            Reset
+          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" disabled={isExporting}>
+              <Download className="mr-2 h-4 w-4" />
+              Export
+            </Button>
+            <Button disabled={isSaving}>
+              <Save className="mr-2 h-4 w-4" />
+              Save
+            </Button>
+          </div>
+        </CardFooter>
+      </Card>
+    </div>
+  );
+};
+
+export default DataVisualizationTab;
