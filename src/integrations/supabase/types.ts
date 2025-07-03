@@ -9,13 +9,77 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      temp_data_chunks: {
+        Row: {
+          chunk_data: Json
+          chunk_index: number
+          created_at: string
+          dataset_id: string
+          id: string
+        }
+        Insert: {
+          chunk_data: Json
+          chunk_index: number
+          created_at?: string
+          dataset_id: string
+          id?: string
+        }
+        Update: {
+          chunk_data?: Json
+          chunk_index?: number
+          created_at?: string
+          dataset_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "temp_data_chunks_dataset_id_fkey"
+            columns: ["dataset_id"]
+            isOneToOne: false
+            referencedRelation: "temp_datasets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      temp_datasets: {
+        Row: {
+          columns: Json
+          created_at: string
+          dataset_name: string
+          id: string
+          session_id: string
+          total_rows: number
+          updated_at: string
+        }
+        Insert: {
+          columns?: Json
+          created_at?: string
+          dataset_name: string
+          id?: string
+          session_id: string
+          total_rows?: number
+          updated_at?: string
+        }
+        Update: {
+          columns?: Json
+          created_at?: string
+          dataset_name?: string
+          id?: string
+          session_id?: string
+          total_rows?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      cleanup_old_temp_data: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

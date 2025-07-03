@@ -1,7 +1,8 @@
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { FileData } from "@/utils/fileUtils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { useChunkedData } from "@/hooks/useChunkedData";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -73,6 +74,7 @@ interface DataVisualizationTabProps {
 type ChartType = "bar" | "line" | "pie" | "area" | "scatter" | "radar" | "radialBar";
 
 const DataVisualizationTab: React.FC<DataVisualizationTabProps> = ({ files, selectedFiles, isProcessing, onComplete }) => {
+  const chunkedData = useChunkedData(50); // Use 50 rows per page
   const [chartType, setChartType] = useState<ChartType>("bar");
   const [xAxisKey, setXAxisKey] = useState<string | null>(null);
   const [yAxisKeys, setYAxisKeys] = useState<string[]>([]);
@@ -130,6 +132,27 @@ const DataVisualizationTab: React.FC<DataVisualizationTabProps> = ({ files, sele
     "inside" | "outside" | "insideStart" | "insideEnd" | "insideTop" | "insideBottom" | "insideLeft" | "insideRight" | undefined
   >("inside");
   const [radialBarLabelFormatter, setRadialBarLabelFormatter] = useState<string>("");
+
+  // Process selected files data in chunks when files change
+  useEffect(() => {
+    const processFiles = async () => {
+      if (selectedFiles.length === 0) return;
+      
+      // Combine all selected files data
+      const combinedData = selectedFiles.flatMap(file => file.data || []);
+      if (combinedData.length === 0) return;
+
+      // Store in chunked format to reduce memory usage
+      await chunkedData.storeData('visualization-data', combinedData);
+      
+      // Update available keys from dataset info
+      if (chunkedData.datasetInfo) {
+        setAvailableKeys(chunkedData.datasetInfo.columns);
+      }
+    };
+
+    processFiles();
+  }, [selectedFiles]);
 
   const getChartOptions = useCallback(() => {
     const baseOptions = {
@@ -250,7 +273,45 @@ const DataVisualizationTab: React.FC<DataVisualizationTabProps> = ({ files, sele
   ]);
 
   const renderChart = () => {
-    return <div className="text-center p-12">Chart rendering placeholder</div>;
+    if (!chunkedData.datasetInfo || chunkedData.currentData.length === 0) {
+      return (
+        <div className="text-center p-12 text-muted-foreground">
+          {chunkedData.loading ? "Loading data..." : "No data available for visualization"}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        <div className="text-center p-8 border-2 border-dashed border-muted rounded-lg">
+          <p className="text-sm text-muted-foreground mb-2">
+            Chart Preview ({chunkedData.datasetInfo.totalRows} total rows)
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Showing page {chunkedData.currentPage + 1} of {chunkedData.totalPages}
+          </p>
+        </div>
+        
+        <div className="flex justify-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => chunkedData.loadPage(Math.max(0, chunkedData.currentPage - 1))}
+            disabled={chunkedData.currentPage === 0 || chunkedData.loading}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => chunkedData.loadPage(Math.min(chunkedData.totalPages - 1, chunkedData.currentPage + 1))}
+            disabled={chunkedData.currentPage >= chunkedData.totalPages - 1 || chunkedData.loading}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
+    );
   };
 
   return (
