@@ -413,7 +413,7 @@ export const processLocalAI = async (prompt: string, fileData: FileData | null):
                   counts[val] = (counts[val] || 0) + 1;
                   return counts;
                 }, {})
-              ).sort((a, b) => b[1] - a[1]).slice(0, 10)
+              ).sort((a, b) => (b[1] as number) - (a[1] as number)).slice(0, 10)
             )
           }\n\`\`\``;
       }
@@ -552,8 +552,7 @@ export const processLocalAI = async (prompt: string, fileData: FileData | null):
           
           // Create table header
           response += `| ${col1} \\ ${col2} | ${top5Val2.join(' | ')} |\n`;
-          // Fix the arithmetic operation by ensuring both operands are properly converted to numbers
-          response += `| ${'---'.repeat(Math.max(1, Math.ceil(Number(col1.length) / 3)))} | ${top5Val2.map(val2 => '---'.repeat(Math.max(1, Math.ceil(Number(val2.length) / 3)))).join(' | ')} |\n`;
+          response += `| ${'---'.repeat(Math.max(1, Math.ceil(col1.length / 3)))} | ${top5Val2.map(val2 => '---'.repeat(Math.max(1, Math.ceil(val2.length / 3)))).join(' | ')} |\n`;
           
           // Create table rows
           for (const val1 of val1Categories) {
