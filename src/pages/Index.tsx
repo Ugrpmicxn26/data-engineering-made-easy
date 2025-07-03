@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { FileData } from "@/utils/fileUtils";
+import { dataStorage } from "@/utils/dataStorage";
 import FileDropZone from "@/components/FileDropZone";
 import FileList from "@/components/FileList";
 import MergeConfigurator from "@/components/MergeConfigurator";
@@ -81,9 +82,17 @@ const Index = () => {
     }
   };
 
-  const handleRemove = (fileId: string) => {
-    setFiles(prev => prev.filter(file => file.id !== fileId));
-    toast.success("File removed");
+  const handleRemove = async (fileId: string) => {
+    try {
+      // Remove from database
+      await dataStorage.cleanup();
+      // Remove from state
+      setFiles(prev => prev.filter(file => file.id !== fileId));
+      toast.success("File removed");
+    } catch (error) {
+      console.error("Error removing file:", error);
+      toast.error("Failed to remove file");
+    }
   };
 
   const handleMergeComplete = (data: any[], updatedFiles?: FileData[], saveAsMergedFile?: boolean) => {

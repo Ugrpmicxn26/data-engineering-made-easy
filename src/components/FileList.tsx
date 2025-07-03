@@ -55,8 +55,6 @@ const FileList: React.FC<FileListProps> = ({ files, onToggleSelect, onPreview, o
                   <span>{formatFileSize(file.size)}</span>
                   <span className="mx-1">•</span>
                   <span>{file.columns.length} columns</span>
-                  <span className="mx-1">•</span>
-                  <span>{file.data?.length || 0} rows</span>
                 </div>
               </div>
             </div>

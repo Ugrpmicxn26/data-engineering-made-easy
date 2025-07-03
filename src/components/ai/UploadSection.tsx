@@ -51,7 +51,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({
                         <div>
                           <p className="font-medium">{file.name}</p>
                           <p className="text-xs text-muted-foreground">
-                            {file.data.length} rows, {file.columns.length} columns
+                            {file.columns.length} columns
                           </p>
                         </div>
                       </div>

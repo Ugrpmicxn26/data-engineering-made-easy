@@ -2,6 +2,7 @@
 import React, { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { FileData, extractZipFiles, parseCSV, readFileAsText } from "@/utils/fileUtils";
+import { dataStorage } from "@/utils/dataStorage";
 import { Upload, X, FileIcon, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -45,13 +46,16 @@ const FileDropZone: React.FC<FileDropZoneProps> = ({ onFilesProcessed }) => {
                   forceStringType: fileType === "txt"
                 });
                 
+                // Store in database instead of memory
+                const datasetInfo = await dataStorage.storeDataset(extractedFile.name, data);
+                
                 processedFiles.push({
-                  id: `${extractedFile.name}-${Date.now()}`,
+                  id: datasetInfo.id,
                   name: extractedFile.name,
                   type: fileType,
                   size: extractedFile.size,
                   content,
-                  data,
+                  data: [], // Empty array since data is in database
                   columns,
                   selected: false,
                 });
@@ -74,13 +78,16 @@ const FileDropZone: React.FC<FileDropZoneProps> = ({ onFilesProcessed }) => {
                 forceStringType: fileType === "txt"
               });
               
+              // Store in database instead of memory
+              const datasetInfo = await dataStorage.storeDataset(file.name, data);
+              
               processedFiles.push({
-                id: `${file.name}-${Date.now()}`,
+                id: datasetInfo.id,
                 name: file.name,
                 type: fileType,
                 size: file.size,
                 content,
-                data,
+                data: [], // Empty array since data is in database
                 columns,
                 selected: false,
               });

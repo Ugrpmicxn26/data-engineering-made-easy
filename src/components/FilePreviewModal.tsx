@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { FileData } from "@/utils/fileUtils";
+import { dataStorage } from "@/utils/dataStorage";
 import DataTable from "./DataTable";
 import { X } from "lucide-react";
 
@@ -19,6 +20,22 @@ interface FilePreviewModalProps {
 }
 
 const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ file, isOpen, onClose }) => {
+  const [previewData, setPreviewData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (file && isOpen) {
+      setLoading(true);
+      dataStorage.getSampleData(file.id, 100).then(data => {
+        setPreviewData(data);
+        setLoading(false);
+      }).catch(() => {
+        setPreviewData([]);
+        setLoading(false);
+      });
+    }
+  }, [file, isOpen]);
+
   if (!file) return null;
 
   return (
@@ -34,11 +51,17 @@ const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ file, isOpen, onClo
         </DialogHeader>
         
         <div className="flex-grow overflow-hidden">
-          <DataTable 
-            data={file.data || []} 
-            filename={file.name}
-            maxHeight="60vh"
-          />
+          {loading ? (
+            <div className="flex items-center justify-center h-32">
+              <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          ) : (
+            <DataTable 
+              data={previewData} 
+              filename={file.name}
+              maxHeight="60vh"
+            />
+          )}
         </div>
         
         <DialogFooter className="flex-shrink-0 sm:justify-end">
